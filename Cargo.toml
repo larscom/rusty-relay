@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-axum = "0.8.6"
+axum = { version = "0.8.6", features = ["ws"] }
 serde = "1.0.228"
 serde_json = "1.0.145"
 tokio = { version = "1.41.1", features = ["full"] }
