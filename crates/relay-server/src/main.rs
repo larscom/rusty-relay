@@ -17,6 +17,7 @@ use tokio_stream::StreamExt;
 
 #[derive(Default)]
 pub struct AppState {
+    // TODO: entries need to be removed after 48hrs
     clients: Mutex<HashMap<String, broadcast::Sender<serde_json::Value>>>,
 }
 
@@ -58,7 +59,7 @@ async fn receive_webhook(
     state: State<Arc<AppState>>,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    tracing::info!("📩 webhook received for {}", id);
+    tracing::info!("📩 webhook received for {} with payload: {payload}", id);
 
     if let Some(sender) = state.get_sender(&id) {
         let _ = sender.send(payload);
