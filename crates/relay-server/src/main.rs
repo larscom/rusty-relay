@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(state.clone());
 
     let addr = "0.0.0.0:8080";
-    tracing::info!("🚀 relay server running on {}", addr);
+    tracing::info!("🚀 relay server running on {addr}");
     Ok(axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?)
 }
 
@@ -59,7 +59,7 @@ async fn receive_webhook(
     state: State<Arc<AppState>>,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    tracing::info!("📩 webhook received for {} with payload: {payload}", id);
+    tracing::info!("📩 webhook received for {id} with payload: {payload}");
 
     if let Some(sender) = state.get_sender(&id) {
         let _ = sender.send(payload);
