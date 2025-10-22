@@ -55,24 +55,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("cryptoprovider should be installed");
 
     let state = Arc::new(AppState::new());
-    let app = Router::new()
+    let router = Router::new()
         .route("/webhook/{id}", routing::post(receive_webhook))
         .route("/ws/{id}", routing::any(handle_ws))
         .with_state(state.clone());
 
     if let Some(tls_config) = get_certs().await {
         let addr = SocketAddr::from(([0, 0, 0, 0], 8443));
-
         tracing::info!("🚀 relay (https) server running on {addr}");
-
         axum_server::bind_rustls(addr, tls_config)
-            .serve(app.clone().into_make_service())
+            .serve(router.into_make_service())
             .await?;
     } else {
-        let addr = "0.0.0.0:8080";
+        let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
         tracing::info!("🚀 relay (http) server running on {addr}");
-        axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?
+        axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
     }
+
     Ok(())
 }
 
