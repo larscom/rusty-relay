@@ -8,8 +8,10 @@ use axum::{
     response::IntoResponse,
     routing,
 };
+use axum_server::tls_rustls::RustlsConfig;
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     sync::{Arc, Mutex},
 };
 use tokio::sync::broadcast;
@@ -39,9 +41,18 @@ impl AppState {
     }
 }
 
+async fn get_certs() -> Option<RustlsConfig> {
+    RustlsConfig::from_pem_file("./certs/cert.pem", "./certs/key.pem")
+        .await
+        .ok()
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("cryptoprovider should be installed");
 
     let state = Arc::new(AppState::new());
     let app = Router::new()
@@ -49,9 +60,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/ws/{id}", routing::any(handle_ws))
         .with_state(state.clone());
 
-    let addr = "0.0.0.0:8080";
-    tracing::info!("🚀 relay server running on {addr}");
-    Ok(axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?)
+    if let Some(tls_config) = get_certs().await {
+        let addr = SocketAddr::from(([0, 0, 0, 0], 8443));
+
+        tracing::info!("🚀 relay (https) server running on {addr}");
+
+        axum_server::bind_rustls(addr, tls_config)
+            .serve(app.clone().into_make_service())
+            .await?;
+    } else {
+        let addr = "0.0.0.0:8080";
+        tracing::info!("🚀 relay (http) server running on {addr}");
+        axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?
+    }
+    Ok(())
 }
 
 async fn receive_webhook(
