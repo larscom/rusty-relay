@@ -9,39 +9,61 @@ use axum::{
     routing,
 };
 use axum_server::tls_rustls::RustlsConfig;
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    sync::{Arc, Mutex},
-};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 
-#[derive(Default)]
 pub struct AppState {
-    // TODO: entries need to be removed after 48hrs
-    clients: Mutex<HashMap<String, broadcast::Sender<serde_json::Value>>>,
+    clients: moka::future::Cache<String, broadcast::Sender<serde_json::Value>>,
+    client_evictor: broadcast::Receiver<String>,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AppState {
     pub fn new() -> Self {
-        Self::default()
+        let (tx, client_evictor) = broadcast::channel(100);
+
+        let clients = moka::future::Cache::builder()
+            .time_to_live(Duration::from_secs((60 * 60) * 24))
+            .eviction_listener(move |key: Arc<String>, _, _| {
+                let _ = tx.send((*key.clone()).to_string());
+            })
+            .build();
+
+        Self {
+            clients,
+            client_evictor,
+        }
     }
 
-    pub fn get_sender(&self, id: &str) -> Option<broadcast::Sender<serde_json::Value>> {
-        self.clients.lock().unwrap().get(id).cloned()
+    pub async fn get_sender(&self, id: &str) -> Option<broadcast::Sender<serde_json::Value>> {
+        self.clients.get(id).await
     }
 
-    pub fn register(&self, id: &str) -> broadcast::Receiver<serde_json::Value> {
-        let mut clients = self.clients.lock().unwrap();
-        let sender = clients
+    pub async fn register(
+        &self,
+        id: &str,
+    ) -> (
+        broadcast::Receiver<serde_json::Value>,
+        broadcast::Receiver<String>,
+    ) {
+        let sender = self
+            .clients
             .entry(id.to_string())
-            .or_insert_with(|| broadcast::channel(100).0);
-        sender.subscribe()
+            .or_insert_with(async { broadcast::channel(100).0 })
+            .await
+            .into_value();
+
+        (sender.subscribe(), self.client_evictor.resubscribe())
     }
 }
 
-async fn get_certs() -> Option<RustlsConfig> {
+async fn get_tls_config() -> Option<RustlsConfig> {
     RustlsConfig::from_pem_file("./certs/cert.pem", "./certs/key.pem")
         .await
         .ok()
@@ -60,7 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/ws/{id}", routing::any(handle_ws))
         .with_state(state.clone());
 
-    if let Some(tls_config) = get_certs().await {
+    if let Some(tls_config) = get_tls_config().await {
         let addr = SocketAddr::from(([0, 0, 0, 0], 8443));
         tracing::info!("🚀 relay (https) server running on {addr}");
         axum_server::bind_rustls(addr, tls_config)
@@ -82,7 +104,7 @@ async fn receive_webhook(
 ) -> impl IntoResponse {
     tracing::info!("📩 webhook received for {id} with payload: {payload}");
 
-    if let Some(sender) = state.get_sender(&id) {
+    if let Some(sender) = state.get_sender(&id).await {
         let _ = sender.send(payload);
     }
 
@@ -100,16 +122,22 @@ pub async fn handle_ws(
 }
 
 async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) {
-    let mut rx = state.register(&id);
+    let (mut rx_payload, mut rx_client) = state.register(&id).await;
 
     loop {
         tokio::select! {
-            Ok(payload) = rx.recv() => {
+            Ok(payload) = rx_payload.recv() => {
                 if socket
                     .send(Message::Text(payload.to_string().into()))
                     .await
                     .is_err()
                 {
+                    break;
+                }
+            },
+            Ok(webhook_id) = rx_client.recv() => {
+                if webhook_id == id {
+                    tracing::info!("⏰ webhook {id} has expired");
                     break;
                 }
             },
