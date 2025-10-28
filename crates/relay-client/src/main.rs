@@ -26,7 +26,7 @@ struct Args {
     target: String,
 
     #[arg(long)]
-    /// Path to custom CA certificate
+    /// Full path to custom CA certificate
     ca_cert: Option<String>,
 }
 
@@ -45,7 +45,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.id,
         args.target
     );
+
     connect(&args).await?;
+
     Ok(())
 }
 
