@@ -1456,6 +1456,7 @@ dependencies = [
  "clap",
  "futures-util",
  "reqwest",
+ "rustls",
  "serde_json",
  "tokio",
  "tokio-tungstenite",

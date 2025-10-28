@@ -1,7 +1,10 @@
+use std::{fs, sync::Arc};
+
 use clap::Parser;
 use futures_util::StreamExt;
 use reqwest::Client;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use rustls::pki_types::pem::PemObject;
+use tokio_tungstenite::{Connector, connect_async_tls_with_config, tungstenite::Message};
 
 #[derive(Parser, Debug)]
 #[command(name = "rusty-relay")]
@@ -17,6 +20,10 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("cryptoprovider should be installed");
+
     let args = Args::parse();
 
     tracing::info!(
@@ -29,13 +36,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub async fn connect(
+fn get_tls_connector() -> Option<Connector> {
+    match fs::read("ca.pem") {
+        Ok(ca_cert) => {
+            let mut root_store = rustls::RootCertStore::empty();
+            let pem = rustls::pki_types::CertificateDer::from_pem_slice(&ca_cert)
+                .expect("cert should be valid pem");
+
+            root_store.add(pem).expect("cert should be added");
+
+            let config = rustls::ClientConfig::builder()
+                .with_root_certificates(root_store)
+                .with_no_client_auth();
+
+            Some(Connector::Rustls(Arc::new(config)))
+        }
+        Err(_) => None,
+    }
+}
+
+async fn connect(
     server: String,
     id: String,
     target: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!("{server}/ws/{id}");
-    let (mut ws_stream, _) = connect_async(url).await?;
+    let (mut ws_stream, _) =
+        connect_async_tls_with_config(url, None, false, get_tls_connector()).await?;
 
     while let Some(msg) = ws_stream.next().await {
         if let Ok(Message::Text(payload)) = msg {
@@ -46,7 +73,7 @@ pub async fn connect(
     Ok(())
 }
 
-pub async fn forward(target: &str, payload: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn forward(target: &str, payload: &str) -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::builder().use_rustls_tls().build()?;
     let res = client.post(target).body(payload.to_string()).send().await?;
     tracing::info!(

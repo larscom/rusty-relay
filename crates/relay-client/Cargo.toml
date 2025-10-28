@@ -12,3 +12,4 @@ serde_json = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
+rustls = { workspace = true }
