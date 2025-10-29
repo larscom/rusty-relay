@@ -9,6 +9,7 @@ use axum::{
     routing,
 };
 use axum_server::tls_rustls::RustlsConfig;
+use rusty_relay_shared::RelayMessage;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
@@ -82,7 +83,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let router = Router::new()
         .route("/webhook/{id}", routing::post(receive_webhook))
-        .route("/connect/{id}", routing::any(handle_ws))
+        .route("/connect", routing::any(handle_ws_without_id))
+        .route("/connect/{id}", routing::any(handle_ws_with_id))
         .with_state(state.clone());
 
     if let Some(tls_config) = get_tls_config().await {
@@ -123,8 +125,8 @@ async fn receive_webhook(
 pub async fn handle_ws(
     ws: WebSocketUpgrade,
     headers: HeaderMap,
-    Path(id): Path<String>,
-    State(state): State<Arc<AppState>>,
+    id: String,
+    state: Arc<AppState>,
 ) -> impl IntoResponse {
     match headers.get("PRIVATE-TOKEN") {
         Some(token) => match token.to_str() {
@@ -157,18 +159,50 @@ pub async fn handle_ws(
     }
 }
 
+pub async fn handle_ws_without_id(
+    ws: WebSocketUpgrade,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    let id = nanoid::nanoid!(12, &nanoid::alphabet::SAFE[2..]);
+    handle_ws(ws, headers, id, state).await
+}
+
+pub async fn handle_ws_with_id(
+    ws: WebSocketUpgrade,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    handle_ws(ws, headers, id, state).await
+}
+
 async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) {
+    if let Ok(msg) = serde_json::to_string(&RelayMessage::ClientId(id.clone())) {
+        if socket.send(Message::Text(msg.into())).await.is_err() {
+            tracing::error!("failed to send RelayMessage");
+            return;
+        }
+    } else {
+        tracing::error!("failed to serialize RelayMessage into JSON");
+        return;
+    }
+
     let (mut rx_payload, mut rx_client) = state.register(&id).await;
 
     loop {
         tokio::select! {
             Ok(payload) = rx_payload.recv() => {
-                // TODO: custom message (struct) shared crate
-                if socket
-                    .send(Message::Text(payload.to_string().into()))
-                    .await
-                    .is_err()
-                {
+                if let Ok(msg) = serde_json::to_string(&RelayMessage::Forward(payload.to_string())) {
+                    if socket
+                        .send(Message::Text(msg.into()))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                } else {
+                    tracing::error!("failed to serialize RelayMessage into JSON");
                     break;
                 }
             },

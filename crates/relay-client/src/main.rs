@@ -4,6 +4,7 @@ use clap::Parser;
 use futures_util::StreamExt;
 use reqwest::Client;
 use rustls::pki_types::pem::PemObject;
+use rusty_relay_shared::RelayMessage;
 use tokio_tungstenite::{
     Connector, connect_async_tls_with_config,
     tungstenite::{self, Message, client::IntoClientRequest},
@@ -20,10 +21,9 @@ struct Args {
     /// The connection token generated on the server
     token: String,
 
-    // TODO: make id optional
     #[arg(long)]
     /// Unique ID to which a client can connect and webhooks gets send to. Multiple clients can connect to the same ID.
-    id: String,
+    id: Option<String>,
 
     #[arg(long)]
     /// Target URL to the local webserver e.g: http://localhost:3000/api/hook
@@ -48,9 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     tracing::info!(
-        "🔗 connecting to relay server {} with id {} forwarding to: {}",
+        "🔗 connecting to relay server {} forwarding to: {}",
         args.hostname,
-        args.id,
         args.target
     );
 
@@ -81,10 +80,16 @@ fn get_tls_connector(ca_cert_path: &Option<String>) -> Option<Connector> {
 }
 
 async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
-    let protocol = if args.insecure { "ws://" } else { "wss://" };
+    let ws_proto = if args.insecure { "ws://" } else { "wss://" };
+    let http_proto = if args.insecure { "http://" } else { "https://" };
 
-    let mut request =
-        format!("{}{}/connect/{}", protocol, args.hostname, args.id).into_client_request()?;
+    let url = if let Some(id) = args.id.as_ref() {
+        format!("{}{}/connect/{}", ws_proto, args.hostname, id)
+    } else {
+        format!("{}{}/connect", ws_proto, args.hostname)
+    };
+
+    let mut request = url.into_client_request()?;
 
     request
         .headers_mut()
@@ -96,8 +101,17 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         Ok(ws_stream) => {
             let (mut ws_stream, _) = ws_stream;
             while let Some(msg) = ws_stream.next().await {
-                if let Ok(Message::Text(payload)) = msg {
-                    forward(&args.target, &payload).await?;
+                if let Ok(Message::Text(message)) = msg {
+                    match serde_json::from_slice::<RelayMessage>(message.as_bytes())? {
+                        RelayMessage::Forward(ref payload) => {
+                            forward(&args.target, payload).await?;
+                        }
+                        RelayMessage::ClientId(client_id) => {
+                            let url =
+                                format!("{}{}/webhook/{}", http_proto, args.hostname, client_id);
+                            tracing::info!("You can send webhooks to this url: {url}")
+                        }
+                    }
                 }
             }
         }

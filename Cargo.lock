@@ -1603,6 +1603,7 @@ dependencies = [
  "futures-util",
  "reqwest",
  "rustls",
+ "rusty-relay-shared",
  "serde_json",
  "tokio",
  "tokio-tungstenite",
@@ -1619,12 +1620,20 @@ dependencies = [
  "moka",
  "nanoid",
  "rustls",
+ "rusty-relay-shared",
  "serde",
  "serde_json",
  "tokio",
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "rusty-relay-shared"
+version = "0.0.1"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

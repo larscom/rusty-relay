@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-serde = "1.0.228"
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 tokio = { version = "1.41.1", features = ["full"] }
 tracing = "0.1.40"
