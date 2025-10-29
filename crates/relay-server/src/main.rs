@@ -199,6 +199,7 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
                         .await
                         .is_err()
                     {
+                        tracing::error!("failed to send RelayMessage");
                         break;
                     }
                 } else {
@@ -214,9 +215,11 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
             },
             Some(result) = socket.next() => {
                 if result.is_err() {
+                    tracing::error!("received websocket error: {}", result.unwrap_err());
                     break;
                 }
                 if let Ok(msg) = result && let Message::Close(_) = msg {
+                    tracing::info!("received websocket close message");
                     break;
                 }
             }
