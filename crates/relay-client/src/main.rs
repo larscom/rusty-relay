@@ -6,7 +6,7 @@ use reqwest::Client;
 use rustls::pki_types::pem::PemObject;
 use tokio_tungstenite::{
     Connector, connect_async_tls_with_config,
-    tungstenite::{Message, client::IntoClientRequest},
+    tungstenite::{self, Message, client::IntoClientRequest},
 };
 
 #[derive(Parser, Debug)]
@@ -20,6 +20,7 @@ struct Args {
     /// The connection token generated on the server
     token: String,
 
+    // TODO: make id optional
     #[arg(long)]
     /// Unique ID to which a client can connect and webhooks gets send to. Multiple clients can connect to the same ID.
     id: String,
@@ -89,14 +90,23 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         .headers_mut()
         .insert("PRIVATE-TOKEN", args.token.parse()?);
 
-    let (mut ws_stream, _) =
-        connect_async_tls_with_config(request, None, false, get_tls_connector(&args.ca_cert))
-            .await?;
-
-    while let Some(msg) = ws_stream.next().await {
-        if let Ok(Message::Text(payload)) = msg {
-            forward(&args.target, &payload).await?;
+    match connect_async_tls_with_config(request, None, false, get_tls_connector(&args.ca_cert))
+        .await
+    {
+        Ok(ws_stream) => {
+            let (mut ws_stream, _) = ws_stream;
+            while let Some(msg) = ws_stream.next().await {
+                if let Ok(Message::Text(payload)) = msg {
+                    forward(&args.target, &payload).await?;
+                }
+            }
         }
+        Err(tungstenite::Error::Http(response)) => {
+            if let Some(body) = response.body() {
+                tracing::error!("{}", String::from_utf8_lossy(body));
+            }
+        }
+        Err(err) => return Err(err.into()),
     }
 
     Ok(())

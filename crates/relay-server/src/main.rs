@@ -13,13 +13,6 @@ use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc, time::Duration
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 
-const TOKEN_CHARS: [char; 62] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
-    'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B',
-    'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
-    'V', 'W', 'X', 'Y', 'Z',
-];
-
 pub struct AppState {
     clients: moka::future::Cache<String, broadcast::Sender<serde_json::Value>>,
     client_evictor: broadcast::Receiver<String>,
@@ -46,7 +39,7 @@ impl AppState {
         Self {
             clients,
             client_evictor,
-            token: nanoid::nanoid!(24, &TOKEN_CHARS),
+            token: nanoid::nanoid!(24, &nanoid::alphabet::SAFE[2..]),
         }
     }
 
@@ -141,17 +134,25 @@ pub async fn handle_ws(
                     ws.on_upgrade(move |socket| handle_socket(socket, id, state))
                 } else {
                     tracing::debug!("❌ client provided invalid token value");
-                    (StatusCode::UNAUTHORIZED, "PRIVATE-TOKEN invalid").into_response()
+                    (StatusCode::UNAUTHORIZED, "Connection token is invalid").into_response()
                 }
             }
             Err(_) => {
                 tracing::debug!("❌ client provided invalid token format");
-                (StatusCode::BAD_REQUEST, "Invalid PRIVATE-TOKEN format").into_response()
+                (
+                    StatusCode::BAD_REQUEST,
+                    "Connection token has invalid format",
+                )
+                    .into_response()
             }
         },
         None => {
             tracing::debug!("❌ client did not provide token");
-            (StatusCode::UNAUTHORIZED, "Missing PRIVATE-TOKEN header").into_response()
+            (
+                StatusCode::UNAUTHORIZED,
+                "Connection token is missing from header",
+            )
+                .into_response()
         }
     }
 }
@@ -162,6 +163,7 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
     loop {
         tokio::select! {
             Ok(payload) = rx_payload.recv() => {
+                // TODO: custom message (struct) shared crate
                 if socket
                     .send(Message::Text(payload.to_string().into()))
                     .await
