@@ -9,7 +9,7 @@ use axum::{
     routing,
 };
 use axum_server::tls_rustls::RustlsConfig;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 
@@ -83,13 +83,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(state.clone());
 
     if let Some(tls_config) = get_tls_config().await {
-        let addr = SocketAddr::from(([0, 0, 0, 0], 8443));
+        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTPS_PORT", 8443)));
         tracing::info!("🚀 relay (https) server running on {addr}");
         axum_server::bind_rustls(addr, tls_config)
             .serve(router.into_make_service())
             .await?;
     } else {
-        let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTP_PORT", 8080)));
         tracing::info!("🚀 relay (http) server running on {addr}");
         axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
     }
@@ -153,4 +153,14 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
     }
 
     tracing::info!("🔗 client disconnected from {id}");
+}
+
+fn from_env_or_default<T>(key: &str, default: T) -> T
+where
+    T: FromStr + Display,
+{
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(default)
 }
