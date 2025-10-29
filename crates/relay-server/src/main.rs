@@ -113,7 +113,8 @@ async fn receive_webhook(
     state: State<Arc<AppState>>,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    tracing::info!("📩 webhook received for {id} with payload: {payload}");
+    tracing::info!("📩 webhook received for {id}");
+    tracing::debug!("{}", payload);
 
     if let Some(sender) = state.get_sender(&id).await {
         let _ = sender.send(payload);
