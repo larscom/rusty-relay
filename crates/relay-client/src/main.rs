@@ -75,7 +75,7 @@ fn get_tls_connector(ca_cert_path: &Option<String>) -> Option<Connector> {
 async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     let protocol = if args.insecure { "ws://" } else { "wss://" };
 
-    let url = format!("{}{}/ws/{}", protocol, args.hostname, args.id);
+    let url = format!("{}{}/connect/{}", protocol, args.hostname, args.id);
     let (mut ws_stream, _) =
         connect_async_tls_with_config(url, None, false, get_tls_connector(&args.ca_cert)).await?;
 

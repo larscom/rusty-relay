@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(AppState::new());
     let router = Router::new()
         .route("/webhook/{id}", routing::post(receive_webhook))
-        .route("/ws/{id}", routing::any(handle_ws))
+        .route("/connect/{id}", routing::any(handle_ws))
         .with_state(state.clone());
 
     if let Some(tls_config) = get_tls_config().await {
