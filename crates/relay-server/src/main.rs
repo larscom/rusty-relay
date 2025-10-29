@@ -11,7 +11,7 @@ use axum::{
 use axum_server::tls_rustls::RustlsConfig;
 use rusty_relay_shared::RelayMessage;
 use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
-use tokio::sync::broadcast;
+use tokio::{sync::broadcast, time::interval};
 use tokio_stream::StreamExt;
 
 pub struct AppState {
@@ -189,9 +189,16 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
     }
 
     let (mut rx_payload, mut rx_client) = state.register(&id).await;
+    let mut ping_interval = interval(Duration::from_secs(30));
 
     loop {
         tokio::select! {
+            _ = ping_interval.tick() => {
+                if socket.send(Message::Ping(Vec::new().into())).await.is_err() {
+                    tracing::error!("failed to send ping");
+                    break;
+                }
+            }
             Ok(payload) = rx_payload.recv() => {
                 if let Ok(msg) = serde_json::to_string(&RelayMessage::Forward(payload.to_string())) {
                     if socket
@@ -206,13 +213,13 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
                     tracing::error!("failed to serialize RelayMessage into JSON");
                     break;
                 }
-            },
+            }
             Ok(webhook_id) = rx_client.recv() => {
                 if webhook_id == id {
                     tracing::info!("⏰ webhook {id} has expired");
                     break;
                 }
-            },
+            }
             Some(result) = socket.next() => {
                 if result.is_err() {
                     tracing::error!("received websocket error: {}", result.unwrap_err());
