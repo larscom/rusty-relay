@@ -100,7 +100,7 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
                         RelayMessage::ClientId(client_id) => {
                             let url =
                                 format!("{}{}/webhook/{}", http_proto, args.hostname, client_id);
-                            println!("You can send webhooks to this url: {url}")
+                            println!("✅ You can send webhooks to this url: {url}")
                         }
                     }
                 }
