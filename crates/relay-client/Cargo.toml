@@ -10,7 +10,5 @@ clap = { version = "4.5.50", features = ["derive"] }
 futures-util = "0.3.31"
 rusty-relay-shared = { path = "../relay-shared" }
 serde_json = { workspace = true }
-tracing-subscriber = { workspace = true }
-tracing = { workspace = true }
 tokio = { workspace = true }
 rustls = { workspace = true }

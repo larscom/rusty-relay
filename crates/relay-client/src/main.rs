@@ -40,20 +40,11 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt::init();
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .expect("cryptoprovider should be installed");
 
-    let args = Args::parse();
-
-    tracing::info!(
-        "🔗 connecting to relay server {} forwarding to: {}",
-        args.hostname,
-        args.target
-    );
-
-    connect(&args).await?;
+    connect(&Args::parse()).await?;
 
     Ok(())
 }
@@ -109,7 +100,7 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
                         RelayMessage::ClientId(client_id) => {
                             let url =
                                 format!("{}{}/webhook/{}", http_proto, args.hostname, client_id);
-                            tracing::info!("You can send webhooks to this url: {url}")
+                            println!("You can send webhooks to this url: {url}")
                         }
                     }
                 }
@@ -117,7 +108,7 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(tungstenite::Error::Http(response)) => {
             if let Some(body) = response.body() {
-                tracing::error!("{}", String::from_utf8_lossy(body));
+                println!("ERROR: {}", String::from_utf8_lossy(body));
             }
         }
         Err(err) => return Err(err.into()),
@@ -129,10 +120,9 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 async fn forward(target: &str, payload: &str) -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::builder().use_rustls_tls().build()?;
     let res = client.post(target).body(payload.to_string()).send().await?;
-    tracing::info!(
-        "➡️  forwarded webhook, got {}\n{}",
-        res.status(),
-        res.text().await?
-    );
+    println!("➡️ forwarded webhook to {}, got {}", target, res.status());
+    if res.status().is_client_error() || res.status().is_server_error() {
+        println!("{}", res.text().await?)
+    }
     Ok(())
 }
