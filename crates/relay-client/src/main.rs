@@ -4,7 +4,10 @@ use clap::Parser;
 use futures_util::StreamExt;
 use reqwest::Client;
 use rustls::pki_types::pem::PemObject;
-use tokio_tungstenite::{Connector, connect_async_tls_with_config, tungstenite::Message};
+use tokio_tungstenite::{
+    Connector, connect_async_tls_with_config,
+    tungstenite::{Message, client::IntoClientRequest},
+};
 
 #[derive(Parser, Debug)]
 #[command(name = "rusty-relay")]
@@ -14,16 +17,20 @@ struct Args {
     hostname: String,
 
     #[arg(long)]
-    /// Connect to the server without TLS (default: false)
-    insecure: bool,
+    /// The connection token generated on the server
+    token: String,
 
     #[arg(long)]
-    /// Unique ID to which a client can connect and webhooks gets send to
+    /// Unique ID to which a client can connect and webhooks gets send to. Multiple clients can connect to the same ID.
     id: String,
 
     #[arg(long)]
     /// Target URL to the local webserver e.g: http://localhost:3000/api/hook
     target: String,
+
+    #[arg(long)]
+    /// Connect to the server without TLS (default: false)
+    insecure: bool,
 
     #[arg(long)]
     /// Full path to custom CA certificate
@@ -75,9 +82,16 @@ fn get_tls_connector(ca_cert_path: &Option<String>) -> Option<Connector> {
 async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     let protocol = if args.insecure { "ws://" } else { "wss://" };
 
-    let url = format!("{}{}/connect/{}", protocol, args.hostname, args.id);
+    let mut request =
+        format!("{}{}/connect/{}", protocol, args.hostname, args.id).into_client_request()?;
+
+    request
+        .headers_mut()
+        .insert("PRIVATE-TOKEN", args.token.parse()?);
+
     let (mut ws_stream, _) =
-        connect_async_tls_with_config(url, None, false, get_tls_connector(&args.ca_cert)).await?;
+        connect_async_tls_with_config(request, None, false, get_tls_connector(&args.ca_cert))
+            .await?;
 
     while let Some(msg) = ws_stream.next().await {
         if let Ok(Message::Text(payload)) = msg {

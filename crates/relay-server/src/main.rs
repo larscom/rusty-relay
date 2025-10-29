@@ -4,7 +4,7 @@ use axum::{
         Path, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing,
 };
@@ -13,9 +13,17 @@ use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc, time::Duration
 use tokio::sync::broadcast;
 use tokio_stream::StreamExt;
 
+const TOKEN_CHARS: [char; 62] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
+    'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B',
+    'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
+    'V', 'W', 'X', 'Y', 'Z',
+];
+
 pub struct AppState {
     clients: moka::future::Cache<String, broadcast::Sender<serde_json::Value>>,
     client_evictor: broadcast::Receiver<String>,
+    token: String,
 }
 
 impl Default for AppState {
@@ -38,6 +46,7 @@ impl AppState {
         Self {
             clients,
             client_evictor,
+            token: nanoid::nanoid!(24, &TOKEN_CHARS),
         }
     }
 
@@ -77,6 +86,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("cryptoprovider should be installed");
 
     let state = Arc::new(AppState::new());
+
     let router = Router::new()
         .route("/webhook/{id}", routing::post(receive_webhook))
         .route("/connect/{id}", routing::any(handle_ws))
@@ -84,13 +94,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(tls_config) = get_tls_config().await {
         let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTPS_PORT", 8443)));
-        tracing::info!("🚀 relay (https) server running on {addr}");
+        tracing::info!(
+            "🚀 server (HTTPS) running on {addr} - connect token: {}",
+            state.token
+        );
         axum_server::bind_rustls(addr, tls_config)
             .serve(router.into_make_service())
             .await?;
     } else {
         let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTP_PORT", 8080)));
-        tracing::info!("🚀 relay (http) server running on {addr}");
+        tracing::info!(
+            "🚀 server (HTTP) running on {addr} - connect token: {}",
+            state.token
+        );
         axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
     }
 
@@ -113,12 +129,31 @@ async fn receive_webhook(
 
 pub async fn handle_ws(
     ws: WebSocketUpgrade,
+    headers: HeaderMap,
     Path(id): Path<String>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    tracing::info!("🔗 client connected to {id}");
-
-    ws.on_upgrade(move |socket| handle_socket(socket, id, state))
+    match headers.get("PRIVATE-TOKEN") {
+        Some(token) => match token.to_str() {
+            Ok(token) => {
+                if token == state.token {
+                    tracing::info!("🔗 client connected to {id}");
+                    ws.on_upgrade(move |socket| handle_socket(socket, id, state))
+                } else {
+                    tracing::debug!("❌ client provided invalid token value");
+                    (StatusCode::UNAUTHORIZED, "PRIVATE-TOKEN invalid").into_response()
+                }
+            }
+            Err(_) => {
+                tracing::debug!("❌ client provided invalid token format");
+                (StatusCode::BAD_REQUEST, "Invalid PRIVATE-TOKEN format").into_response()
+            }
+        },
+        None => {
+            tracing::debug!("❌ client did not provide token");
+            (StatusCode::UNAUTHORIZED, "Missing PRIVATE-TOKEN header").into_response()
+        }
+    }
 }
 
 async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) {
