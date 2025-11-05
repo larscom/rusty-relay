@@ -1,4 +1,4 @@
-FROM rust:latest AS builder
+FROM docker.io/rust:latest AS builder
 WORKDIR /build
 COPY . ./
 RUN cargo build --bin rusty-relay-server --release
