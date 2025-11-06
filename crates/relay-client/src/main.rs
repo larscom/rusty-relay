@@ -94,7 +94,7 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
             while let Some(msg) = ws_stream.next().await {
                 if let Ok(Message::Text(message)) = msg {
                     match serde_json::from_slice::<RelayMessage>(message.as_bytes())? {
-                        RelayMessage::Forward(ref payload) => {
+                        RelayMessage::Webhook { ref payload } => {
                             forward(&args.target, payload).await?;
                         }
                         RelayMessage::ClientId(client_id) => {

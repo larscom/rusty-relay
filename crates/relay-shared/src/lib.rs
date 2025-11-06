@@ -2,6 +2,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RelayMessage {
-    Forward(String),
+    Webhook { payload: String },
     ClientId(String),
 }

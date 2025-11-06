@@ -196,7 +196,7 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
         return;
     }
 
-    let (mut rx_payload, mut rx_client) = state.register_client(&client_id).await;
+    let (mut rx_payload, mut rx_client_evictor) = state.register_client(&client_id).await;
     let mut ping_interval = interval(Duration::from_secs(30));
 
     loop {
@@ -208,7 +208,7 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
                 }
             }
             Ok(payload) = rx_payload.recv() => {
-                if let Ok(msg) = serde_json::to_string(&RelayMessage::Forward(payload.to_string())) {
+                if let Ok(msg) = serde_json::to_string(&RelayMessage::Webhook{ payload:payload.to_string()}) {
                     if socket
                         .send(Message::Text(msg.into()))
                         .await
@@ -222,8 +222,8 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
                     break;
                 }
             }
-            Ok(id) = rx_client.recv() => {
-                if id == client_id {
+            Ok(rx_client_id) = rx_client_evictor.recv() => {
+                if rx_client_id == client_id {
                     tracing::info!("⏰ client id: {client_id} has expired");
                     break;
                 }
