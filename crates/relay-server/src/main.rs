@@ -40,7 +40,9 @@ impl AppState {
         Self {
             clients,
             client_evictor,
-            token: nanoid::nanoid!(24, &nanoid::alphabet::SAFE[2..]),
+            token: from_env_or_default("CONNECT_TOKEN", || {
+                nanoid::nanoid!(24, &nanoid::alphabet::SAFE[2..])
+            }),
         }
     }
 
@@ -82,24 +84,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(AppState::new());
 
     let router = Router::new()
-        .route("/webhook/{id}", routing::post(receive_webhook))
+        .route("/webhook/{id}", routing::post(webhook_handler))
         .route("/connect", routing::any(handle_ws_without_id))
         .route("/connect/{id}", routing::any(handle_ws_with_id))
+        .route("/health", routing::get(health_handler))
         .with_state(state.clone());
 
     if let Some(tls_config) = get_tls_config().await {
-        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTPS_PORT", 8443)));
+        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTPS_PORT", || 8443)));
         tracing::info!(
-            "🚀 server (HTTPS) running on {addr} - connect token: {}",
+            "🚀 server running on https://{addr} - connect token: {}",
             state.token
         );
         axum_server::bind_rustls(addr, tls_config)
             .serve(router.into_make_service())
             .await?;
     } else {
-        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTP_PORT", 8080)));
+        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTP_PORT", || 8080)));
         tracing::info!(
-            "🚀 server (HTTP) running on {addr} - connect token: {}",
+            "🚀 server running on http://{addr} - connect token: {}",
             state.token
         );
         axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
@@ -108,7 +111,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn receive_webhook(
+async fn health_handler() -> impl IntoResponse {
+    StatusCode::OK
+}
+
+async fn webhook_handler(
     Path(id): Path<String>,
     state: State<Arc<AppState>>,
     Json(payload): Json<serde_json::Value>,
@@ -237,12 +244,12 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
     tracing::info!("🔗 client disconnected from {id}");
 }
 
-fn from_env_or_default<T>(key: &str, default: T) -> T
+fn from_env_or_default<T>(key: &str, default: fn() -> T) -> T
 where
     T: FromStr + Display,
 {
     std::env::var(key)
         .ok()
         .and_then(|value| value.parse().ok())
-        .unwrap_or(default)
+        .unwrap_or_else(default)
 }
