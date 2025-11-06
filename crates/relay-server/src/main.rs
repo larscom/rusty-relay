@@ -16,8 +16,8 @@ use tokio_stream::StreamExt;
 
 pub struct AppState {
     clients: moka::future::Cache<String, broadcast::Sender<serde_json::Value>>,
-    client_evictor: broadcast::Receiver<String>,
-    token: String,
+    rx_client_evictor: broadcast::Receiver<String>,
+    connect_token: String,
 }
 
 impl Default for AppState {
@@ -28,29 +28,29 @@ impl Default for AppState {
 
 impl AppState {
     pub fn new() -> Self {
-        let (tx, client_evictor) = broadcast::channel(100);
+        let (tx_client_evictor, rx_client_evictor) = broadcast::channel(100);
 
         let clients = moka::future::Cache::builder()
             .time_to_live(Duration::from_secs((60 * 60) * 24))
-            .eviction_listener(move |key: Arc<String>, _, _| {
-                let _ = tx.send((*key.clone()).to_string());
+            .eviction_listener(move |client_id: Arc<String>, _, _| {
+                let _ = tx_client_evictor.send((*client_id.clone()).to_string());
             })
             .build();
 
         Self {
             clients,
-            client_evictor,
-            token: from_env_or_default("CONNECT_TOKEN", || {
+            rx_client_evictor,
+            connect_token: from_env_or_default("CONNECT_TOKEN", || {
                 nanoid::nanoid!(24, &nanoid::alphabet::SAFE[2..])
             }),
         }
     }
 
-    pub async fn get_sender(&self, id: &str) -> Option<broadcast::Sender<serde_json::Value>> {
+    pub async fn get_client(&self, id: &str) -> Option<broadcast::Sender<serde_json::Value>> {
         self.clients.get(id).await
     }
 
-    pub async fn register(
+    pub async fn register_client(
         &self,
         id: &str,
     ) -> (
@@ -64,7 +64,7 @@ impl AppState {
             .await
             .into_value();
 
-        (sender.subscribe(), self.client_evictor.resubscribe())
+        (sender.subscribe(), self.rx_client_evictor.resubscribe())
     }
 }
 
@@ -84,17 +84,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(AppState::new());
 
     let router = Router::new()
-        .route("/webhook/{id}", routing::post(webhook_handler))
+        .route("/webhook/{client_id}", routing::post(webhook_handler))
         .route("/connect", routing::any(handle_ws_without_id))
-        .route("/connect/{id}", routing::any(handle_ws_with_id))
+        .route("/connect/{client_id}", routing::any(handle_ws_with_id))
         .route("/health", routing::get(health_handler))
         .with_state(state.clone());
 
     if let Some(tls_config) = get_tls_config().await {
         let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTPS_PORT", || 8443)));
         tracing::info!(
-            "🚀 server running on https://{addr} - connect token: {}",
-            state.token
+            "🚀 (https) server running on https://{addr}/health - connect token: {}",
+            state.connect_token
         );
         axum_server::bind_rustls(addr, tls_config)
             .serve(router.into_make_service())
@@ -102,8 +102,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTP_PORT", || 8080)));
         tracing::info!(
-            "🚀 server running on http://{addr} - connect token: {}",
-            state.token
+            "🚀 (http) server running on http://{addr}/health - connect token: {}",
+            state.connect_token
         );
         axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
     }
@@ -112,18 +112,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn health_handler() -> impl IntoResponse {
-    StatusCode::OK
+    (StatusCode::OK, "ok").into_response()
 }
 
 async fn webhook_handler(
-    Path(id): Path<String>,
+    Path(client_id): Path<String>,
     state: State<Arc<AppState>>,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    tracing::info!("📩 webhook received for {id}");
+    tracing::info!("📩 webhook received for client with id: {client_id}");
     tracing::debug!("{}", payload);
 
-    if let Some(sender) = state.get_sender(&id).await {
+    if let Some(sender) = state.get_client(&client_id).await {
         let _ = sender.send(payload);
     }
 
@@ -133,17 +133,17 @@ async fn webhook_handler(
 pub async fn handle_ws(
     ws: WebSocketUpgrade,
     headers: HeaderMap,
-    id: String,
+    client_id: String,
     state: Arc<AppState>,
 ) -> impl IntoResponse {
     match headers.get("PRIVATE-TOKEN") {
         Some(token) => match token.to_str() {
             Ok(token) => {
-                if token == state.token {
-                    tracing::info!("🔗 client connected to {id}");
-                    ws.on_upgrade(move |socket| handle_socket(socket, id, state))
+                if token == state.connect_token {
+                    tracing::info!("👨 client connected with id: {client_id}");
+                    ws.on_upgrade(move |socket| handle_socket(socket, client_id, state))
                 } else {
-                    tracing::debug!("❌ client provided invalid token value");
+                    tracing::debug!("❌ client provided invalid token");
                     (StatusCode::UNAUTHORIZED, "Connection token is invalid").into_response()
                 }
             }
@@ -172,38 +172,38 @@ pub async fn handle_ws_without_id(
     headers: HeaderMap,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    let id = nanoid::nanoid!(12, &nanoid::alphabet::SAFE[2..]);
-    handle_ws(ws, headers, id, state).await
+    let client_id = nanoid::nanoid!(12, &nanoid::alphabet::SAFE[2..]);
+    handle_ws(ws, headers, client_id, state).await
 }
 
 pub async fn handle_ws_with_id(
     ws: WebSocketUpgrade,
     headers: HeaderMap,
-    Path(id): Path<String>,
+    Path(client_id): Path<String>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    handle_ws(ws, headers, id, state).await
+    handle_ws(ws, headers, client_id, state).await
 }
 
-async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) {
-    if let Ok(msg) = serde_json::to_string(&RelayMessage::ClientId(id.clone())) {
+async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppState>) {
+    if let Ok(msg) = serde_json::to_string(&RelayMessage::ClientId(client_id.clone())) {
         if socket.send(Message::Text(msg.into())).await.is_err() {
-            tracing::error!("failed to send RelayMessage");
+            tracing::error!("failed to send message to client");
             return;
         }
     } else {
-        tracing::error!("failed to serialize RelayMessage into JSON");
+        tracing::error!("failed to serialize into JSON");
         return;
     }
 
-    let (mut rx_payload, mut rx_client) = state.register(&id).await;
+    let (mut rx_payload, mut rx_client) = state.register_client(&client_id).await;
     let mut ping_interval = interval(Duration::from_secs(30));
 
     loop {
         tokio::select! {
             _ = ping_interval.tick() => {
                 if socket.send(Message::Ping(Vec::new().into())).await.is_err() {
-                    tracing::error!("failed to send ping");
+                    tracing::error!("failed to send ping to client with id: {client_id}");
                     break;
                 }
             }
@@ -214,17 +214,17 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
                         .await
                         .is_err()
                     {
-                        tracing::error!("failed to send RelayMessage");
+                        tracing::error!("failed to send message to client");
                         break;
                     }
                 } else {
-                    tracing::error!("failed to serialize RelayMessage into JSON");
+                    tracing::error!("failed to serialize into JSON");
                     break;
                 }
             }
-            Ok(webhook_id) = rx_client.recv() => {
-                if webhook_id == id {
-                    tracing::info!("⏰ webhook {id} has expired");
+            Ok(id) = rx_client.recv() => {
+                if id == client_id {
+                    tracing::info!("⏰ client id: {client_id} has expired");
                     break;
                 }
             }
@@ -241,7 +241,7 @@ async fn handle_socket(mut socket: WebSocket, id: String, state: Arc<AppState>) 
         }
     }
 
-    tracing::info!("🔗 client disconnected from {id}");
+    tracing::info!("👨 client disconnected with id: {client_id}");
 }
 
 fn from_env_or_default<T>(key: &str, default: fn() -> T) -> T
