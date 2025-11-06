@@ -47,7 +47,7 @@ jobs:
 
   docker-build:
     if: github.event_name != 'pull_request'
-    needs: [build-crates]
+    needs: [crates-build]
     runs-on: ubuntu-latest
     permissions:
       packages: write
