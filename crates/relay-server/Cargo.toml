@@ -11,8 +11,8 @@ axum-server = { version = "0.7.2", default-features = false, features = [
 tokio-stream = "0.1.17"
 moka = { version = "0.12.11", features = ["future"] }
 nanoid = "0.4.0"
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.20"
 regex = "*"
 rusty-relay-shared = { path = "../relay-shared" }
 tokio = { workspace = true }
