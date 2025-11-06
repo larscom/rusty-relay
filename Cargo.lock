@@ -1617,6 +1617,7 @@ dependencies = [
  "axum-server",
  "moka",
  "nanoid",
+ "regex",
  "rustls",
  "rusty-relay-shared",
  "serde",

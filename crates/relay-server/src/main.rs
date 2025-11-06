@@ -10,12 +10,18 @@ use axum::{
 };
 use axum_server::tls_rustls::RustlsConfig;
 use rusty_relay_shared::RelayMessage;
-use std::{fmt::Display, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
-use tokio::{sync::broadcast, time::interval};
+use std::{
+    collections::HashMap, fmt::Display, net::SocketAddr, str::FromStr, sync::Arc, time::Duration,
+};
+use tokio::{
+    sync::{Mutex, broadcast, oneshot},
+    time,
+};
 use tokio_stream::StreamExt;
 
 pub struct AppState {
-    clients: moka::future::Cache<String, broadcast::Sender<serde_json::Value>>,
+    clients: moka::future::Cache<String, broadcast::Sender<RelayMessage>>,
+    proxy_requests: Mutex<HashMap<String, oneshot::Sender<RelayMessage>>>,
     rx_client_evictor: broadcast::Receiver<String>,
     connect_token: String,
 }
@@ -39,14 +45,13 @@ impl AppState {
 
         Self {
             clients,
+            proxy_requests: Mutex::new(HashMap::new()),
             rx_client_evictor,
-            connect_token: from_env_or_default("CONNECT_TOKEN", || {
-                nanoid::nanoid!(24, &nanoid::alphabet::SAFE[2..])
-            }),
+            connect_token: from_env_or_else("CONNECT_TOKEN", || generate_id(24)),
         }
     }
 
-    pub async fn get_client(&self, id: &str) -> Option<broadcast::Sender<serde_json::Value>> {
+    pub async fn get_client(&self, id: &str) -> Option<broadcast::Sender<RelayMessage>> {
         self.clients.get(id).await
     }
 
@@ -54,7 +59,7 @@ impl AppState {
         &self,
         id: &str,
     ) -> (
-        broadcast::Receiver<serde_json::Value>,
+        broadcast::Receiver<RelayMessage>,
         broadcast::Receiver<String>,
     ) {
         let sender = self
@@ -87,11 +92,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/webhook/{client_id}", routing::post(webhook_handler))
         .route("/connect", routing::any(handle_ws_without_id))
         .route("/connect/{client_id}", routing::any(handle_ws_with_id))
+        .route(
+            "/proxy/{client_id}/{*path}",
+            routing::get(proxy_handler_with_path),
+        )
+        .route(
+            "/proxy/{client_id}",
+            routing::get(proxy_handler_without_path),
+        )
         .route("/health", routing::get(health_handler))
         .with_state(state.clone());
 
     if let Some(tls_config) = get_tls_config().await {
-        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTPS_PORT", || 8443)));
+        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_else("HTTPS_PORT", || 8443)));
         tracing::info!(
             "🚀 (https) server running on https://{addr}/health - connect token: {}",
             state.connect_token
@@ -100,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .serve(router.into_make_service())
             .await?;
     } else {
-        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_default("HTTP_PORT", || 8080)));
+        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_else("HTTP_PORT", || 8080)));
         tracing::info!(
             "🚀 (http) server running on http://{addr}/health - connect token: {}",
             state.connect_token
@@ -115,16 +128,71 @@ async fn health_handler() -> impl IntoResponse {
     (StatusCode::OK, "ok").into_response()
 }
 
-async fn webhook_handler(
-    Path(client_id): Path<String>,
+async fn proxy_handler(
     state: State<Arc<AppState>>,
+    client_id: String,
+    path: Option<String>,
+) -> impl IntoResponse {
+    let request_id = generate_id(10);
+    tracing::info!("🖥 proxy request ({request_id}) received for client id: {client_id}");
+
+    if let Some(sender) = state.get_client(&client_id).await {
+        let _ = sender.send(RelayMessage::ProxyRequest {
+            request_id: request_id.clone(),
+            path,
+        });
+    }
+
+    let (resp_tx, resp_rx) = oneshot::channel();
+
+    {
+        state
+            .proxy_requests
+            .lock()
+            .await
+            .insert(request_id, resp_tx);
+    }
+
+    match tokio::time::timeout(std::time::Duration::from_secs(5), resp_rx).await {
+        Ok(Ok(RelayMessage::ProxyResponse { body, .. })) => {
+            let response = axum::response::Response::builder().status(StatusCode::OK);
+            let rewritten = regex::Regex::new(r#"(src|href)="(/?)([^"]*)""#)
+                .unwrap()
+                .replace_all(&body, format!(r#"$1="/proxy/{client_id}/$3""#))
+                .into_owned();
+
+            response.body(rewritten.into()).unwrap()
+        }
+        _ => (StatusCode::GATEWAY_TIMEOUT, "Timeout").into_response(),
+    }
+}
+
+async fn proxy_handler_with_path(
+    state: State<Arc<AppState>>,
+    Path((client_id, path)): Path<(String, String)>,
+) -> impl IntoResponse {
+    proxy_handler(state, client_id, Some(path)).await
+}
+
+async fn proxy_handler_without_path(
+    state: State<Arc<AppState>>,
+    Path(client_id): Path<String>,
+) -> impl IntoResponse {
+    proxy_handler(state, client_id, None).await
+}
+
+async fn webhook_handler(
+    state: State<Arc<AppState>>,
+    Path(client_id): Path<String>,
     Json(payload): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     tracing::info!("📩 webhook received for client with id: {client_id}");
     tracing::debug!("{}", payload);
 
     if let Some(sender) = state.get_client(&client_id).await {
-        let _ = sender.send(payload);
+        let _ = sender.send(RelayMessage::Webhook {
+            payload: payload.to_string(),
+        });
     }
 
     StatusCode::OK
@@ -172,7 +240,7 @@ pub async fn handle_ws_without_id(
     headers: HeaderMap,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    let client_id = nanoid::nanoid!(12, &nanoid::alphabet::SAFE[2..]);
+    let client_id = generate_id(12);
     handle_ws(ws, headers, client_id, state).await
 }
 
@@ -196,8 +264,8 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
         return;
     }
 
-    let (mut rx_payload, mut rx_client_evictor) = state.register_client(&client_id).await;
-    let mut ping_interval = interval(Duration::from_secs(30));
+    let (mut rx_relay, mut rx_client_evictor) = state.register_client(&client_id).await;
+    let mut ping_interval = time::interval(Duration::from_secs(30));
 
     loop {
         tokio::select! {
@@ -207,8 +275,8 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
                     break;
                 }
             }
-            Ok(payload) = rx_payload.recv() => {
-                if let Ok(msg) = serde_json::to_string(&RelayMessage::Webhook{ payload:payload.to_string()}) {
+            Ok(relay_message) = rx_relay.recv() => {
+                if let Ok(msg) = serde_json::to_string(&relay_message) {
                     if socket
                         .send(Message::Text(msg.into()))
                         .await
@@ -229,13 +297,23 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
                 }
             }
             Some(result) = socket.next() => {
-                if result.is_err() {
-                    tracing::debug!("received websocket error: {}", result.unwrap_err());
-                    break;
-                }
-                if let Ok(msg) = result && let Message::Close(_) = msg {
-                    tracing::debug!("received websocket close message");
-                    break;
+                match result {
+                    Ok(Message::Close(_)) => {
+                        tracing::debug!("received websocket close message");
+                        break;
+                    }
+                    Ok(Message::Text(msg)) => {
+                       tracing::info!("received message from client?: {}", msg);
+                       if let RelayMessage::ProxyResponse { request_id, body } = serde_json::from_slice::<RelayMessage>(msg.as_bytes()).unwrap()
+                             && let Some(tx) = state.proxy_requests.lock().await.remove(&request_id) {
+                                   let _ = tx.send(RelayMessage::ProxyResponse { request_id, body });
+                               }
+                    }
+                    Ok(_) => {},
+                    Err(err) => {
+                        tracing::debug!("received websocket error: {}", err);
+                        break;
+                    }
                 }
             }
         }
@@ -244,12 +322,17 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
     tracing::info!("👨 client disconnected with id: {client_id}");
 }
 
-fn from_env_or_default<T>(key: &str, default: fn() -> T) -> T
+fn from_env_or_else<T, F>(key: &str, f: F) -> T
 where
     T: FromStr + Display,
+    F: FnOnce() -> T,
 {
     std::env::var(key)
         .ok()
         .and_then(|value| value.parse().ok())
-        .unwrap_or_else(default)
+        .unwrap_or_else(f)
+}
+
+fn generate_id(length: usize) -> String {
+    nanoid::nanoid!(length, &nanoid::alphabet::SAFE[2..])
 }

@@ -1,7 +1,7 @@
 use std::{fs, sync::Arc};
 
 use clap::Parser;
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use reqwest::Client;
 use rustls::pki_types::pem::PemObject;
 use rusty_relay_shared::RelayMessage;
@@ -90,8 +90,8 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         .await
     {
         Ok(ws_stream) => {
-            let (mut ws_stream, _) = ws_stream;
-            while let Some(msg) = ws_stream.next().await {
+            let (mut write, mut read) = ws_stream.0.split();
+            while let Some(msg) = read.next().await {
                 if let Ok(Message::Text(message)) = msg {
                     match serde_json::from_slice::<RelayMessage>(message.as_bytes())? {
                         RelayMessage::Webhook { ref payload } => {
@@ -100,8 +100,24 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
                         RelayMessage::ClientId(client_id) => {
                             let url =
                                 format!("{}{}/webhook/{}", http_proto, args.hostname, client_id);
-                            println!("✅ You can send webhooks to this url: {url}")
+                            println!("✅ You can send webhooks to this url: {url}");
                         }
+                        RelayMessage::ProxyRequest { request_id, path } => {
+                            println!("received proxy request");
+                            let client = Client::builder().use_rustls_tls().build()?;
+                            let url =
+                                format!("{}/{}", args.target.clone(), path.unwrap_or_default());
+                            let res = client.get(url).send().await?;
+                            let message = RelayMessage::ProxyResponse {
+                                request_id,
+                                body: res.text().await?,
+                            };
+                            write
+                                .send(Message::Text(serde_json::to_string(&message)?.into()))
+                                .await
+                                .expect("Failed to send message");
+                        }
+                        _ => {}
                     }
                 }
             }
