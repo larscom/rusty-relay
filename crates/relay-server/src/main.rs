@@ -196,12 +196,21 @@ async fn proxy_handler(
                             )
                             .into_owned();
 
-                        response.body(Body::from(html)).unwrap().into_response()
+                        response
+                            .body(Body::from(html))
+                            .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))
+                            .into_response()
                     } else {
-                        response.body(Body::from(body)).unwrap().into_response()
+                        response
+                            .body(Body::from(body))
+                            .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))
+                            .into_response()
                     }
                 }
-                None => response.body(Body::from(body)).unwrap().into_response(),
+                None => response
+                    .body(Body::from(body))
+                    .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))
+                    .into_response(),
             }
         }
         _ => (StatusCode::GATEWAY_TIMEOUT, "Timeout").into_response(),
@@ -349,12 +358,15 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
                         tracing::debug!("received websocket close message");
                         break;
                     }
-                    Ok(Message::Text(msg)) => {
-                       tracing::debug!("received message from client: {}", msg);
-                       if let RelayMessage::ProxyResponse { request_id, body, headers, status } = serde_json::from_slice::<RelayMessage>(msg.as_bytes()).unwrap()
-                             && let Some(tx) = state.proxy_requests.lock().await.remove(&request_id) {
-                                   let _ = tx.send(RelayMessage::ProxyResponse { request_id, body, headers, status });
-                               }
+                    Ok(Message::Text(message)) => {
+                       tracing::debug!("received message from client: {}", message);
+                       if let Ok(RelayMessage::ProxyResponse { request_id, body, headers, status }) = serde_json::from_slice::<RelayMessage>(message.as_bytes()) {
+                        if let Some(tx) = state.proxy_requests.lock().await.remove(&request_id) {
+                            let _ = tx.send(RelayMessage::ProxyResponse { request_id, body, headers, status });
+                        }
+                       } else {
+                        tracing::error!("failed to deserialize from bytes");
+                       }
                     }
                     Ok(_) => {},
                     Err(err) => {

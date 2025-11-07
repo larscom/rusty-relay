@@ -142,7 +142,7 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
 
                             let message = RelayMessage::ProxyResponse {
                                 request_id,
-                                body: res.bytes().await.unwrap().to_vec(),
+                                body: res.bytes().await?.to_vec(),
                                 headers: response_headers,
                                 status,
                             };
