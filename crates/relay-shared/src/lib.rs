@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,10 +10,15 @@ pub enum RelayMessage {
     ClientId(String),
     ProxyRequest {
         request_id: String,
+        method: String,
+        headers: HashMap<String, String>,
+        body: Vec<u8>,
         path: Option<String>,
     },
     ProxyResponse {
         request_id: String,
-        body: String,
+        headers: HashMap<String, String>,
+        body: Vec<u8>,
+        status: u16,
     },
 }

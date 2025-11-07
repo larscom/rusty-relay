@@ -1,5 +1,6 @@
 use axum::{
     Json, Router,
+    body::Body,
     extract::{
         Path, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
@@ -94,11 +95,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/connect/{client_id}", routing::any(handle_ws_with_id))
         .route(
             "/proxy/{client_id}/{*path}",
-            routing::get(proxy_handler_with_path),
+            routing::any(proxy_handler_with_path),
         )
         .route(
             "/proxy/{client_id}",
-            routing::get(proxy_handler_without_path),
+            routing::any(proxy_handler_without_path),
+        )
+        .route(
+            "/proxy/{client_id}/",
+            routing::any(proxy_handler_without_path),
         )
         .route("/health", routing::get(health_handler))
         .with_state(state.clone());
@@ -132,6 +137,9 @@ async fn proxy_handler(
     state: State<Arc<AppState>>,
     client_id: String,
     path: Option<String>,
+    headers: HeaderMap,
+    method: axum::http::Method,
+    body: axum::body::Bytes,
 ) -> impl IntoResponse {
     let request_id = generate_id(10);
     tracing::info!("🖥 proxy request ({request_id}) received for client id: {client_id}");
@@ -140,6 +148,17 @@ async fn proxy_handler(
         let _ = sender.send(RelayMessage::ProxyRequest {
             request_id: request_id.clone(),
             path,
+            method: method.to_string(),
+            headers: headers
+                .iter()
+                .filter_map(|(k, v)| {
+                    v.to_str()
+                        .ok()
+                        .map(|v| v.to_string())
+                        .map(|v| (k.to_string(), v))
+                })
+                .collect(),
+            body: body.to_vec(),
         });
     }
 
@@ -154,14 +173,36 @@ async fn proxy_handler(
     }
 
     match tokio::time::timeout(std::time::Duration::from_secs(5), resp_rx).await {
-        Ok(Ok(RelayMessage::ProxyResponse { body, .. })) => {
-            let response = axum::response::Response::builder().status(StatusCode::OK);
-            let rewritten = regex::Regex::new(r#"(src|href)="(/?)([^"]*)""#)
-                .unwrap()
-                .replace_all(&body, format!(r#"$1="/proxy/{client_id}/$3""#))
-                .into_owned();
+        Ok(Ok(RelayMessage::ProxyResponse {
+            body,
+            headers,
+            status,
+            ..
+        })) => {
+            let mut response = axum::response::Response::builder().status(status);
+            for (k, v) in headers.iter().filter(|(k, _)| *k != "content-length") {
+                response = response.header(k, v);
+            }
 
-            response.body(rewritten.into()).unwrap()
+            let content_type = headers.get("content-type");
+            match content_type {
+                Some(ct) => {
+                    if ct.contains("text/html") {
+                        let html = regex::Regex::new(r#"(src|href)="(/?)([^"]*)""#)
+                            .expect("valid regex")
+                            .replace_all(
+                                &String::from_utf8_lossy(&body),
+                                format!(r#"$1="/proxy/{client_id}/$3""#),
+                            )
+                            .into_owned();
+
+                        response.body(Body::from(html)).unwrap().into_response()
+                    } else {
+                        response.body(Body::from(body)).unwrap().into_response()
+                    }
+                }
+                None => response.body(Body::from(body)).unwrap().into_response(),
+            }
         }
         _ => (StatusCode::GATEWAY_TIMEOUT, "Timeout").into_response(),
     }
@@ -170,15 +211,21 @@ async fn proxy_handler(
 async fn proxy_handler_with_path(
     state: State<Arc<AppState>>,
     Path((client_id, path)): Path<(String, String)>,
+    headers: HeaderMap,
+    method: axum::http::Method,
+    body: axum::body::Bytes,
 ) -> impl IntoResponse {
-    proxy_handler(state, client_id, Some(path)).await
+    proxy_handler(state, client_id, Some(path), headers, method, body).await
 }
 
 async fn proxy_handler_without_path(
     state: State<Arc<AppState>>,
     Path(client_id): Path<String>,
+    headers: HeaderMap,
+    method: axum::http::Method,
+    body: axum::body::Bytes,
 ) -> impl IntoResponse {
-    proxy_handler(state, client_id, None).await
+    proxy_handler(state, client_id, None, headers, method, body).await
 }
 
 async fn webhook_handler(
@@ -303,10 +350,10 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
                         break;
                     }
                     Ok(Message::Text(msg)) => {
-                       tracing::info!("received message from client?: {}", msg);
-                       if let RelayMessage::ProxyResponse { request_id, body } = serde_json::from_slice::<RelayMessage>(msg.as_bytes()).unwrap()
+                       tracing::debug!("received message from client: {}", msg);
+                       if let RelayMessage::ProxyResponse { request_id, body, headers, status } = serde_json::from_slice::<RelayMessage>(msg.as_bytes()).unwrap()
                              && let Some(tx) = state.proxy_requests.lock().await.remove(&request_id) {
-                                   let _ = tx.send(RelayMessage::ProxyResponse { request_id, body });
+                                   let _ = tx.send(RelayMessage::ProxyResponse { request_id, body, headers, status });
                                }
                     }
                     Ok(_) => {},

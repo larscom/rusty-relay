@@ -1,8 +1,11 @@
-use std::{fs, sync::Arc};
+use std::{collections::HashMap, fs, str::FromStr, sync::Arc};
 
 use clap::Parser;
 use futures_util::{SinkExt, StreamExt};
-use reqwest::Client;
+use reqwest::{
+    Client, Method,
+    header::{HeaderMap, HeaderName, HeaderValue},
+};
 use rustls::pki_types::pem::PemObject;
 use rusty_relay_shared::RelayMessage;
 use tokio_tungstenite::{
@@ -98,19 +101,50 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
                             forward(&args.target, payload).await?;
                         }
                         RelayMessage::ClientId(client_id) => {
-                            let url =
+                            let webhook_url =
                                 format!("{}{}/webhook/{}", http_proto, args.hostname, client_id);
-                            println!("✅ You can send webhooks to this url: {url}");
+                            let proxy_url =
+                                format!("{}{}/proxy/{}", http_proto, args.hostname, client_id);
+                            println!("✅ You can send webhook requests to this url: {webhook_url}");
+                            println!("✅ You can send proxy requests to this url: {proxy_url}")
                         }
-                        RelayMessage::ProxyRequest { request_id, path } => {
-                            println!("received proxy request");
+                        RelayMessage::ProxyRequest {
+                            request_id,
+                            path,
+                            method,
+                            headers,
+                            body,
+                        } => {
                             let client = Client::builder().use_rustls_tls().build()?;
                             let url =
                                 format!("{}/{}", args.target.clone(), path.unwrap_or_default());
-                            let res = client.get(url).send().await?;
+
+                            let mut request_headers = HeaderMap::with_capacity(headers.len());
+                            for (k, v) in headers {
+                                request_headers
+                                    .insert(k.parse::<HeaderName>()?, v.parse::<HeaderValue>()?);
+                            }
+
+                            let res = client
+                                .request(Method::from_str(&method)?, url)
+                                .headers(request_headers)
+                                .body(body)
+                                .send()
+                                .await?;
+
+                            let mut response_headers = HashMap::new();
+                            for (k, v) in res.headers() {
+                                if let Ok(value) = v.to_str() {
+                                    response_headers.insert(k.to_string(), value.to_string());
+                                }
+                            }
+                            let status = res.status().as_u16();
+
                             let message = RelayMessage::ProxyResponse {
                                 request_id,
-                                body: res.text().await?,
+                                body: res.bytes().await.unwrap().to_vec(),
+                                headers: response_headers,
+                                status,
                             };
                             write
                                 .send(Message::Text(serde_json::to_string(&message)?.into()))
