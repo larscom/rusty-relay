@@ -13,19 +13,48 @@ on:
 
 jobs:
   crates-build:
-      name: Build and test on ${{ matrix.os }}
+      name: Build and Test (${{ matrix.os }} - ${{ matrix.target }})
       runs-on: ${{ matrix.os }}
       strategy:
+        fail-fast: false
         matrix:
-          os: [ubuntu-latest, macos-latest, windows-latest]
-          rust: [stable]
+          include:
+            # Linux
+            - os: ubuntu-latest
+              target: x86_64-unknown-linux-gnu
+              arch: x86_64
+              platform: linux
+            - os: ubuntu-latest
+              target: aarch64-unknown-linux-gnu
+              arch: arm64
+              platform: linux
+            # macOS
+            - os: macos-latest
+              target: x86_64-apple-darwin
+              arch: x86_64
+              platform: macos
+            - os: macos-latest
+              target: aarch64-apple-darwin
+              arch: arm64
+              platform: macos
+            # Windows
+            - os: windows-latest
+              target: x86_64-pc-windows-msvc
+              arch: x86_64
+              platform: windows
+            - os: windows-latest
+              target: aarch64-pc-windows-msvc
+              arch: arm64
+              platform: windows
 
       steps:
         - name: Checkout repository
           uses: actions/checkout@v5
 
         - name: Set up Rust
-          uses: actions-rust-lang/setup-rust-toolchain@v1
+          uses: dtolnay/rust-toolchain@stable
+          with:
+            targets: ${{ matrix.target }}
 
         - name: Cache cargo
           uses: actions/cache@v4
@@ -33,17 +62,39 @@ jobs:
             path: |
               ~/.cargo/registry
               ~/.cargo/git
-              target
-            key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-            restore-keys: ${{ runner.os }}-cargo-
+              target/${{ matrix.target }}
+            key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
+       
         - name: Clippy
           run: cargo clippy --workspace --all-targets --verbose -- -D warnings
 
         - name: Build
-          run: cargo build --workspace --all-targets --verbose
+          run: cargo build --workspace --release --target ${{ matrix.target }}
 
         - name: Test
-          run: cargo test --workspace --all-targets --verbose
+          run: cargo test --workspace --target ${{ matrix.target }}
+
+        - name: Package binaries
+          shell: bash
+          run: |
+            mkdir -p dist
+            for crate in rusty-relay-client rusty-relay-server; do
+              bin="target/${{ matrix.target }}/release/$crate"
+              if [[ "${{ matrix.platform }}" == "windows" ]]; then
+                bin="${bin}.exe"
+                zip_name="${crate}-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+                7z a "dist/$zip_name" "$bin" > /dev/null
+              else
+                zip_name="${crate}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"
+                tar -czf "dist/$zip_name" -C "$(dirname "$bin")" "$(basename "$bin")"
+              fi
+            done
+        - name: Upload packaged binaries
+          uses: actions/upload-artifact@v4
+          with:
+            name: ${{ matrix.platform }}-${{ matrix.arch }}
+            path: dist/*
 
   docker-build:
     if: github.event_name != 'pull_request'
