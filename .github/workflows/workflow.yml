@@ -131,7 +131,11 @@ jobs:
               version=${{ github.ref_name }}
 
               echo "🔹 Update crate versions to: $version"
-              cargo workspaces version --no-git-commit --yes custom $version
+              cargo workspaces version \
+               --no-git-commit \
+               --yes \
+               --force "rusty-relay-*" \
+               custom $version
 
               echo "🔹 Publishing crates in correct order"
               cargo workspaces publish \
@@ -156,9 +160,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           draft: false
           prerelease: false
+          generate_release_notes: true
           files: |
             artifacts/*/*
         env:
