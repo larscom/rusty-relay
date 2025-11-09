@@ -1597,7 +1597,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "rusty-relay-client"
-version = "0.0.1"
+version = "0.0.0"
 dependencies = [
  "clap",
  "futures-util",
@@ -1611,7 +1611,7 @@ dependencies = [
 
 [[package]]
 name = "rusty-relay-server"
-version = "0.0.1"
+version = "0.0.0"
 dependencies = [
  "axum",
  "axum-server",
@@ -1630,7 +1630,7 @@ dependencies = [
 
 [[package]]
 name = "rusty-relay-shared"
-version = "0.0.1"
+version = "0.0.0"
 dependencies = [
  "serde",
 ]

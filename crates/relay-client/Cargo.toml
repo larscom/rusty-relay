@@ -1,7 +1,14 @@
 [package]
 name = "rusty-relay-client"
-version = "0.0.1"
+version = "0.0.0"
 edition = "2024"
+authors = ["Lars Kniep <larskniep@gmail.com>"]
+description = "The client which can connect to a rusty-relay server"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/larscom/rusty-relay"
+readme = "README.md"
+keywords = ["client", "proxy", "relay", "rest", "webhooks"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
