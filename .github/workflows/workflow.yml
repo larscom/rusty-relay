@@ -90,17 +90,20 @@ jobs:
               if [[ "${{ matrix.platform }}" == "windows" ]]; then
                 bin="${bin}.exe"
                 zip_name="${crate}-${{ matrix.platform }}-${{ matrix.arch }}.zip"
-                7z a "dist/$zip_name" "$bin" > /dev/null
+                7z a "dist/${zip_name}" "${bin}" > /dev/null
               else
                 zip_name="${crate}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"
-                tar -czf "dist/$zip_name" -C "$(dirname "$bin")" "$(basename "$bin")"
+                tar -czf "dist/${zip_name}" -C "$(dirname "${bin}")" "$(basename "${bin}")"
               fi
             done
+
         - name: Upload packaged binaries
           uses: actions/upload-artifact@v4
           with:
-            name: ${{ matrix.platform }}-${{ matrix.arch }}
-            path: dist/*
+            name: "${{ matrix.platform }}-${{ matrix.arch }}-artifacts"
+            path: |
+              dist/rusty-relay-client-${{ matrix.platform }}-${{ matrix.arch }}.*
+              dist/rusty-relay-server-${{ matrix.platform }}-${{ matrix.arch }}.*
 
   # release:
   #   name: Create GitHub Release
