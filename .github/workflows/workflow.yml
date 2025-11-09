@@ -141,6 +141,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: crates-build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write    
 
     steps:
       - name: Download all artifacts
