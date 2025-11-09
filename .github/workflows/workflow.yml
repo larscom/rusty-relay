@@ -161,6 +161,8 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
+          body: |
+            ## 🚀 What's New
           draft: false
           prerelease: false
           generate_release_notes: true
