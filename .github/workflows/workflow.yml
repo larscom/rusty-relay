@@ -50,11 +50,13 @@ jobs:
       steps:
         - name: Checkout repository
           uses: actions/checkout@v5
-          
+
         - name: Install cross compiler for ARM64
           if: matrix.target == 'aarch64-unknown-linux-gnu'
-          run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
-
+          run: |
+            sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu libssl-dev:arm64
+            echo "OPENSSL_DIR=/usr/lib/aarch64-linux-gnu" >> $GITHUB_ENV
+         
         - name: Set up Rust
           uses: dtolnay/rust-toolchain@stable
           with:
