@@ -12,8 +12,25 @@ on:
       - main
 
 jobs:
+  crates-clippy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --verbose -- -D warnings  
+
+
   crates-build:
       name: Build and Test (${{ matrix.os }} - ${{ matrix.target }})
+      needs: crates-clippy
       runs-on: ${{ matrix.os }}
       strategy:
         fail-fast: false
@@ -55,7 +72,7 @@ jobs:
           if: matrix.target == 'aarch64-unknown-linux-gnu'
           run: |
             sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu libssl-dev
-            echo "OPENSSL_DIR=/usr/lib/aarch64-linux-gnu" >> $GITHUB_ENV
+            # echo "OPENSSL_DIR=/usr/lib/aarch64-linux-gnu" >> $GITHUB_ENV
          
         - name: Set up Rust
           uses: dtolnay/rust-toolchain@stable
@@ -70,10 +87,7 @@ jobs:
               ~/.cargo/git
               target/${{ matrix.target }}
             key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-            restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
-       
-        - name: Clippy
-          run: cargo clippy --workspace --all-targets --verbose -- -D warnings
+            restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-       
 
         - name: Build
           run: cargo build --workspace --release --target ${{ matrix.target }}
@@ -127,7 +141,7 @@ jobs:
 
   docker-build:
     if: github.event_name != 'pull_request'
-    needs: [crates-build]
+    needs: crates-build
     runs-on: ubuntu-latest
     permissions:
       packages: write
