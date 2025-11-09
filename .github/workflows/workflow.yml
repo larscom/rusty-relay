@@ -50,6 +50,10 @@ jobs:
       steps:
         - name: Checkout repository
           uses: actions/checkout@v5
+          
+        - name: Install cross compiler for ARM64
+          if: matrix.target == 'aarch64-unknown-linux-gnu'
+          run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
 
         - name: Set up Rust
           uses: dtolnay/rust-toolchain@stable
@@ -95,6 +99,29 @@ jobs:
           with:
             name: ${{ matrix.platform }}-${{ matrix.arch }}
             path: dist/*
+
+  # release:
+  #   name: Create GitHub Release
+  #   needs: crates-build
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: artifacts
+
+  #     - name: Create Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         tag_name: ${{ github.ref_name }}
+  #         name: Release ${{ github.ref_name }}
+  #         draft: false
+  #         prerelease: false
+  #         files: |
+  #           artifacts/**/*
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker-build:
     if: github.event_name != 'pull_request'
