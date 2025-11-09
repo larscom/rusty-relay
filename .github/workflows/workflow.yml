@@ -41,10 +41,6 @@ jobs:
               target: x86_64-unknown-linux-gnu
               arch: x86_64
               platform: linux
-            - os: ubuntu-22.04
-              target: aarch64-unknown-linux-gnu
-              arch: arm64
-              platform: linux
             # macOS
             - os: macos-latest
               target: x86_64-apple-darwin
@@ -59,24 +55,11 @@ jobs:
               target: x86_64-pc-windows-msvc
               arch: x86_64
               platform: windows
-            - os: windows-latest
-              target: aarch64-pc-windows-msvc
-              arch: arm64
-              platform: windows
 
       steps:
         - name: Checkout repository
           uses: actions/checkout@v5
-
-        - name: Install cross compiler for ARM64
-          if: matrix.target == 'aarch64-unknown-linux-gnu'
-          run: |
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
-            sudo apt-get install -y \
-              gcc-aarch64-linux-gnu \
-              libssl-dev:arm64            
-         
+              
         - name: Set up Rust
           uses: dtolnay/rust-toolchain@stable
           with:
