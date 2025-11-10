@@ -17,8 +17,8 @@ use tokio_tungstenite::{
 #[command(name = "rusty-relay")]
 struct Args {
     #[arg(long)]
-    /// The server hostname e.g: localhost:8080 or my.server.com
-    hostname: String,
+    /// The rusty-relay-server hostname e.g: localhost:8080 or my.server.com
+    server: String,
 
     #[arg(long)]
     /// The connection token generated on the server
@@ -33,11 +33,11 @@ struct Args {
     target: String,
 
     #[arg(long)]
-    /// Connect to the server without TLS (default: false)
+    /// Connect to the server without TLS
     insecure: bool,
 
     #[arg(long)]
-    /// Full path to custom CA certificate
+    /// Path to CA certificate (PEM encoded)
     ca_cert: Option<String>,
 }
 
@@ -69,7 +69,10 @@ fn get_tls_connector(ca_cert_path: &Option<String>) -> Option<Connector> {
 
                 Some(Connector::Rustls(Arc::new(config)))
             }
-            Err(_) => None,
+            Err(_) => {
+                println!("⚠️ WARNING: ca certificate was not found at: {cert_path}");
+                None
+            }
         })
 }
 
@@ -78,9 +81,9 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     let http_proto = if args.insecure { "http://" } else { "https://" };
 
     let url = if let Some(id) = args.id.as_ref() {
-        format!("{}{}/connect/{}", ws_proto, args.hostname, id)
+        format!("{}{}/connect/{}", ws_proto, args.server, id)
     } else {
-        format!("{}{}/connect", ws_proto, args.hostname)
+        format!("{}{}/connect", ws_proto, args.server)
     };
 
     let mut request = url.into_client_request()?;
@@ -102,11 +105,11 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
                         }
                         RelayMessage::ClientId(client_id) => {
                             let webhook_url =
-                                format!("{}{}/webhook/{}", http_proto, args.hostname, client_id);
+                                format!("{}{}/webhook/{}", http_proto, args.server, client_id);
                             let proxy_url =
-                                format!("{}{}/proxy/{}", http_proto, args.hostname, client_id);
-                            println!("✅ You can send webhook requests to this url: {webhook_url}");
-                            println!("✅ You can send proxy requests to this url: {proxy_url}")
+                                format!("{}{}/proxy/{}", http_proto, args.server, client_id);
+                            println!("✅ You can send webhook requests to: {webhook_url}");
+                            println!("✅ You can send proxy requests to: {proxy_url}")
                         }
                         RelayMessage::ProxyRequest {
                             request_id,
@@ -116,8 +119,11 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
                             body,
                         } => {
                             let client = Client::builder().use_rustls_tls().build()?;
-                            let url =
-                                format!("{}/{}", args.target.clone(), path.unwrap_or_default());
+                            let url = if let Some(p) = path.as_ref() {
+                                format!("{}/{}", &args.target, p)
+                            } else {
+                                args.target.clone()
+                            };
 
                             let mut request_headers = HeaderMap::with_capacity(headers.len());
                             for (k, v) in headers {
@@ -149,7 +155,7 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
                             write
                                 .send(Message::Text(serde_json::to_string(&message)?.into()))
                                 .await
-                                .expect("Failed to send message");
+                                .expect("failed to send message");
                         }
                         _ => {}
                     }
@@ -158,7 +164,7 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         }
         Err(tungstenite::Error::Http(response)) => {
             if let Some(body) = response.body() {
-                println!("ERROR: {}", String::from_utf8_lossy(body));
+                println!("❌ ERROR: {}", String::from_utf8_lossy(body));
             }
         }
         Err(err) => return Err(err.into()),

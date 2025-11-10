@@ -321,7 +321,7 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
     }
 
     let (mut rx_relay, mut rx_client_evictor) = state.register_client(&client_id).await;
-    let mut ping_interval = time::interval(Duration::from_secs(30));
+    let mut ping_interval = time::interval(Duration::from_secs(25));
 
     loop {
         tokio::select! {
@@ -365,7 +365,7 @@ async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppS
                             let _ = tx.send(RelayMessage::ProxyResponse { request_id, body, headers, status });
                         }
                        } else {
-                        tracing::error!("failed to deserialize from bytes");
+                            tracing::error!("failed to deserialize from bytes");
                        }
                     }
                     Ok(_) => {},
