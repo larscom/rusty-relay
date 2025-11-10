@@ -7,7 +7,7 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
 };
 use rustls::pki_types::pem::PemObject;
-use rusty_relay_shared::RelayMessage;
+use rusty_relay_messages::RelayMessage;
 use tokio_tungstenite::{
     Connector, connect_async_tls_with_config,
     tungstenite::{self, Message, client::IntoClientRequest},

@@ -10,7 +10,7 @@ use axum::{
     routing,
 };
 use axum_server::tls_rustls::RustlsConfig;
-use rusty_relay_shared::RelayMessage;
+use rusty_relay_messages::RelayMessage;
 use std::{
     collections::HashMap, fmt::Display, net::SocketAddr, str::FromStr, sync::Arc, time::Duration,
 };

@@ -1,9 +1,9 @@
 [package]
-name = "rusty-relay-shared"
+name = "rusty-relay-messages"
 version = "0.0.0"
 edition = "2024"
 authors = ["Lars Kniep <larskniep@gmail.com>"]
-description = "Shared library for the rusty-relay client and server"
+description = "Messages library for the rusty-relay client and server"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/larscom/rusty-relay"
 readme = "README.md"

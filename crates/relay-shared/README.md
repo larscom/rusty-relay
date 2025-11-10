@@ -1,1 +1,0 @@
-# Rusty Relay Shared Library
