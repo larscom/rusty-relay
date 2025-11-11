@@ -3,13 +3,13 @@ use std::{net::SocketAddr, sync::Arc};
 
 use crate::{state::AppState, util::from_env_or_else};
 
-mod connect;
 mod health;
 mod proxy;
 mod state;
 mod tls;
 mod util;
 mod webhook;
+mod websocket;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(AppState::new());
 
     let router = Router::new()
-        .route("/connect", routing::any(connect::connect_handler))
+        .route("/connect", routing::any(websocket::connect_handler))
         .route(
             "/webhook/{client_id}",
             routing::post(webhook::webhook_handler),
