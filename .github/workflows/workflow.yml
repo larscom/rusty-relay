@@ -20,9 +20,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --verbose -- -D warnings  
