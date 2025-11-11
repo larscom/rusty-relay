@@ -90,9 +90,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(AppState::new());
 
     let router = Router::new()
+        .route("/connect", routing::any(connect_handler))
         .route("/webhook/{client_id}", routing::post(webhook_handler))
-        .route("/connect", routing::any(handle_ws_without_id))
-        .route("/connect/{client_id}", routing::any(handle_ws_with_id))
         .route(
             "/proxy/{client_id}/{*path}",
             routing::any(proxy_handler_with_path),
@@ -254,16 +253,17 @@ async fn webhook_handler(
     StatusCode::OK
 }
 
-pub async fn handle_ws(
+pub async fn connect_handler(
     ws: WebSocketUpgrade,
     headers: HeaderMap,
-    client_id: String,
-    state: Arc<AppState>,
+    state: State<Arc<AppState>>,
 ) -> impl IntoResponse {
     match headers.get("PRIVATE-TOKEN") {
         Some(token) => match token.to_str() {
             Ok(token) => {
                 if token == state.connect_token {
+                    let client_id = generate_id(12);
+
                     tracing::info!("👨 client connected with id: {client_id}");
                     ws.on_upgrade(move |socket| handle_socket(socket, client_id, state))
                 } else {
@@ -291,25 +291,7 @@ pub async fn handle_ws(
     }
 }
 
-pub async fn handle_ws_without_id(
-    ws: WebSocketUpgrade,
-    headers: HeaderMap,
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    let client_id = generate_id(12);
-    handle_ws(ws, headers, client_id, state).await
-}
-
-pub async fn handle_ws_with_id(
-    ws: WebSocketUpgrade,
-    headers: HeaderMap,
-    Path(client_id): Path<String>,
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    handle_ws(ws, headers, client_id, state).await
-}
-
-async fn handle_socket(mut socket: WebSocket, client_id: String, state: Arc<AppState>) {
+async fn handle_socket(mut socket: WebSocket, client_id: String, state: State<Arc<AppState>>) {
     if let Ok(msg) = serde_json::to_string(&RelayMessage::ClientId(client_id.clone())) {
         if socket.send(Message::Text(msg.into())).await.is_err() {
             tracing::error!("failed to send message to client");

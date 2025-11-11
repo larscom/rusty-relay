@@ -21,12 +21,8 @@ struct Args {
     server: String,
 
     #[arg(long)]
-    /// The connection token generated on the server
+    /// The connection token generated on rusty-relay-server
     token: String,
-
-    #[arg(long)]
-    /// Unique ID to which a client can connect and webhooks gets send to. Multiple clients can connect to the same ID.
-    id: Option<String>,
 
     #[arg(long)]
     /// Target URL to the local webserver e.g: http://localhost:3000/api/hook
@@ -80,12 +76,7 @@ async fn connect(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     let ws_proto = if args.insecure { "ws://" } else { "wss://" };
     let http_proto = if args.insecure { "http://" } else { "https://" };
 
-    let url = if let Some(id) = args.id.as_ref() {
-        format!("{}{}/connect/{}", ws_proto, args.server, id)
-    } else {
-        format!("{}{}/connect", ws_proto, args.server)
-    };
-
+    let url = format!("{}{}/connect", ws_proto, args.server);
     let mut request = url.into_client_request()?;
 
     request
