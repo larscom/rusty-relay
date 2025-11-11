@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 mod cli;
 mod error;
 mod proxy;

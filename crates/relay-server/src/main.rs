@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use axum::{Router, routing};
 use std::{net::SocketAddr, sync::Arc};
 
