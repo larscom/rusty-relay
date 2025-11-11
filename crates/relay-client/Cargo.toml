@@ -19,3 +19,4 @@ rusty-relay-messages = { path = "../relay-messages" }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 rustls = { workspace = true }
+thiserror = { workspace = true }

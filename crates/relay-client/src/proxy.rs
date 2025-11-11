@@ -5,6 +5,11 @@ use reqwest::{
 use rusty_relay_messages::RelayMessage;
 use std::{collections::HashMap, str::FromStr};
 
+pub fn on_client_id(client_id: &str, protocol: &str, server: &str) {
+    let proxy_url = format!("{}{}/proxy/{}", protocol, server, client_id);
+    println!("✅ You can send proxy requests to: {proxy_url}")
+}
+
 pub async fn handle_proxy_request(
     request_id: String,
     path: Option<String>,
