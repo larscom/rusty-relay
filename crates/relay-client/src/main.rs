@@ -25,11 +25,11 @@ struct Args {
     token: String,
 
     #[arg(long)]
-    /// Target URL to the local webserver e.g: http://localhost:3000/api/hook
+    /// Target URL to local webserver e.g: http://localhost:3000/api/webhook
     target: String,
 
     #[arg(long)]
-    /// Connect to the server without TLS
+    /// Connect to rusty-relay-server without TLS
     insecure: bool,
 
     #[arg(long)]

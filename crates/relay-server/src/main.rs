@@ -75,9 +75,12 @@ impl AppState {
 }
 
 async fn get_tls_config() -> Option<RustlsConfig> {
-    RustlsConfig::from_pem_file("./certs/cert.pem", "./certs/key.pem")
-        .await
-        .ok()
+    RustlsConfig::from_pem_file(
+        from_env_or_else("TLS_CERT_FILE", || "./certs/cert.pem".to_string()),
+        from_env_or_else("TLS_KEY_FILE", || "./certs/key.pem".to_string()),
+    )
+    .await
+    .ok()
 }
 
 #[tokio::main]
@@ -110,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(tls_config) = get_tls_config().await {
         let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_else("HTTPS_PORT", || 8443)));
         tracing::info!(
-            "🚀 (https) server running on https://{addr}/health - connect token: {}",
+            "🚀 server running (https) on https://{addr}/health - connect token: {}",
             state.connect_token
         );
         axum_server::bind_rustls(addr, tls_config)
@@ -119,7 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_else("HTTP_PORT", || 8080)));
         tracing::info!(
-            "🚀 (http) server running on http://{addr}/health - connect token: {}",
+            "🚀 server running (http) on http://{addr}/health - connect token: {}",
             state.connect_token
         );
         axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
@@ -140,7 +143,7 @@ async fn proxy_handler(
     method: axum::http::Method,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
-    let request_id = generate_id(10);
+    let request_id = generate_id(20);
     tracing::info!("🖥 proxy request ({request_id}) received for client id: {client_id}");
 
     if let Some(sender) = state.get_client(&client_id).await {
