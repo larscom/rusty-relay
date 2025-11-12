@@ -1,3 +1,4 @@
+use crate::{cli, proxy::ProxyHandler, tls, webhook::WebhookHandler};
 use futures_util::{SinkExt, StreamExt};
 use rusty_relay_messages::RelayMessage;
 use tokio_tungstenite::{
@@ -5,16 +6,24 @@ use tokio_tungstenite::{
     tungstenite::{self, Message, Utf8Bytes, client::IntoClientRequest},
 };
 
-use crate::{cli, proxy, tls, webhook};
-
 #[derive(Debug)]
 pub struct Client<'a> {
     cli_args: &'a cli::Args,
+    proxy_handler: ProxyHandler<'a>,
+    webhook_handler: WebhookHandler<'a>,
 }
 
 impl<'a> Client<'a> {
-    pub fn from_args(args: &'a cli::Args) -> Self {
-        Self { cli_args: args }
+    pub fn new(
+        args: &'a cli::Args,
+        webhook_handler: WebhookHandler<'a>,
+        proxy_handler: ProxyHandler<'a>,
+    ) -> Self {
+        Self {
+            cli_args: args,
+            webhook_handler,
+            proxy_handler,
+        }
     }
 
     pub async fn connect_blocking(&self) -> Result<(), Box<dyn std::error::Error>> {
@@ -59,14 +68,17 @@ impl<'a> Client<'a> {
     ) -> Result<Option<RelayMessage>, Box<dyn std::error::Error>> {
         match serde_json::from_slice::<RelayMessage>(message.as_bytes())? {
             RelayMessage::Webhook { ref payload } => {
-                webhook::forward(&self.cli_args.target, payload).await?;
+                self.webhook_handler.handle(payload).await?;
             }
             RelayMessage::ClientId(ref client_id) => {
                 let insecure = self.cli_args.insecure;
                 let http_proto = if insecure { "http://" } else { "https://" };
 
-                proxy::on_client_id(client_id, http_proto, &self.cli_args.server);
-                webhook::on_client_id(client_id, http_proto, &self.cli_args.server);
+                self.proxy_handler
+                    .print_url(client_id, http_proto, &self.cli_args.server);
+
+                self.webhook_handler
+                    .print_url(client_id, http_proto, &self.cli_args.server);
             }
             RelayMessage::ProxyRequest {
                 request_id,
@@ -75,15 +87,10 @@ impl<'a> Client<'a> {
                 headers,
                 body,
             } => {
-                let proxy_response = proxy::handle_proxy_request(
-                    request_id,
-                    path,
-                    method,
-                    headers,
-                    body,
-                    self.cli_args.target.clone(),
-                )
-                .await?;
+                let proxy_response = self
+                    .proxy_handler
+                    .handle(request_id, path, method, headers, body)
+                    .await?;
 
                 return Ok(Some(proxy_response));
             }

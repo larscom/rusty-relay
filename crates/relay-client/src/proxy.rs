@@ -5,50 +5,65 @@ use reqwest::{
 use rusty_relay_messages::RelayMessage;
 use std::{collections::HashMap, str::FromStr};
 
-pub fn on_client_id(client_id: &str, protocol: &str, server: &str) {
-    let proxy_url = format!("{}{}/proxy/{}", protocol, server, client_id);
-    println!("✅ You can send proxy requests to: {proxy_url}")
+#[derive(Debug)]
+pub struct ProxyHandler<'a> {
+    target: &'a str,
+    http_client: Client,
 }
 
-pub async fn handle_proxy_request(
-    request_id: String,
-    path: Option<String>,
-    method: String,
-    headers: HashMap<String, String>,
-    body: Vec<u8>,
-    target: String,
-) -> Result<RelayMessage, Box<dyn std::error::Error>> {
-    let client = Client::builder().use_rustls_tls().build()?;
-    let url = if let Some(p) = path.as_ref() {
-        format!("{}/{}", &target, p)
-    } else {
-        target
-    };
-
-    let mut request_headers = HeaderMap::with_capacity(headers.len());
-    for (k, v) in headers {
-        request_headers.insert(k.parse::<HeaderName>()?, v.parse::<HeaderValue>()?);
-    }
-
-    let res = client
-        .request(Method::from_str(&method)?, url)
-        .headers(request_headers)
-        .body(body)
-        .send()
-        .await?;
-
-    let mut response_headers = HashMap::new();
-    for (k, v) in res.headers() {
-        if let Ok(value) = v.to_str() {
-            response_headers.insert(k.to_string(), value.to_string());
+impl<'a> ProxyHandler<'a> {
+    pub fn new(target: &'a str, http_client: Client) -> Self {
+        Self {
+            target,
+            http_client,
         }
     }
-    let status = res.status().as_u16();
 
-    Ok(RelayMessage::ProxyResponse {
-        request_id,
-        body: res.bytes().await?.to_vec(),
-        headers: response_headers,
-        status,
-    })
+    pub async fn handle(
+        &self,
+        request_id: String,
+        path: Option<String>,
+        method: String,
+        headers: HashMap<String, String>,
+        body: Vec<u8>,
+    ) -> Result<RelayMessage, Box<dyn std::error::Error>> {
+        let url = if let Some(p) = path.as_ref() {
+            &format!("{}/{}", self.target, p)
+        } else {
+            self.target
+        };
+
+        let mut request_headers = HeaderMap::with_capacity(headers.len());
+        for (k, v) in headers {
+            request_headers.insert(k.parse::<HeaderName>()?, v.parse::<HeaderValue>()?);
+        }
+
+        let res = self
+            .http_client
+            .request(Method::from_str(&method)?, url)
+            .headers(request_headers)
+            .body(body)
+            .send()
+            .await?;
+
+        let mut response_headers = HashMap::new();
+        for (k, v) in res.headers() {
+            if let Ok(value) = v.to_str() {
+                response_headers.insert(k.to_string(), value.to_string());
+            }
+        }
+        let status = res.status().as_u16();
+
+        Ok(RelayMessage::ProxyResponse {
+            request_id,
+            body: res.bytes().await?.to_vec(),
+            headers: response_headers,
+            status,
+        })
+    }
+
+    pub fn print_url(&self, client_id: &str, protocol: &str, server: &str) {
+        let proxy_url = format!("{}{}/proxy/{}", protocol, server, client_id);
+        println!("✅ You can send proxy requests to: {proxy_url}")
+    }
 }

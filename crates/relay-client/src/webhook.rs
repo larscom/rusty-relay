@@ -1,16 +1,42 @@
 use reqwest::Client;
 
-pub fn on_client_id(client_id: &str, protocol: &str, server: &str) {
-    let webhook_url = format!("{}{}/webhook/{}", protocol, server, client_id);
-    println!("✅ You can send webhook requests to: {webhook_url}");
+#[derive(Debug)]
+pub struct WebhookHandler<'a> {
+    target: &'a str,
+    http_client: Client,
 }
 
-pub async fn forward(target: &str, payload: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::builder().use_rustls_tls().build()?;
-    let res = client.post(target).body(payload.to_string()).send().await?;
-    println!("➡️ forwarded webhook to {}, got {}", target, res.status());
-    if res.status().is_client_error() || res.status().is_server_error() {
-        println!("{}", res.text().await?)
+impl<'a> WebhookHandler<'a> {
+    pub fn new(target: &'a str, http_client: Client) -> Self {
+        Self {
+            target,
+            http_client,
+        }
     }
-    Ok(())
+
+    pub async fn handle(&self, payload: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let res = self
+            .http_client
+            .post(self.target)
+            .body(payload.to_string())
+            .send()
+            .await?;
+
+        println!(
+            "➡️ forwarded webhook to {}, got {}",
+            self.target,
+            res.status()
+        );
+
+        if res.status().is_client_error() || res.status().is_server_error() {
+            println!("{}", res.text().await?)
+        }
+
+        Ok(())
+    }
+
+    pub fn print_url(&self, client_id: &str, protocol: &str, server: &str) {
+        let webhook_url = format!("{}{}/webhook/{}", protocol, server, client_id);
+        println!("✅ You can send webhook requests to: {webhook_url}");
+    }
 }
