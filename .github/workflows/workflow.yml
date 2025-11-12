@@ -82,6 +82,7 @@ jobs:
           run: cargo test --workspace --target ${{ matrix.target }}
 
         - name: Package binaries
+          if: startsWith(github.ref, 'refs/tags/')
           shell: bash
           run: |
             mkdir -p dist
@@ -89,25 +90,27 @@ jobs:
               bin="target/${{ matrix.target }}/release/$crate"
               if [[ "${{ matrix.platform }}" == "windows" ]]; then
                 bin="${bin}.exe"
-                zip_name="${crate}-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+                zip_name="${crate}-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.zip"
                 7z a "dist/${zip_name}" "${bin}" > /dev/null
               else
-                zip_name="${crate}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"
+                zip_name="${crate}-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"
                 tar -czf "dist/${zip_name}" -C "$(dirname "${bin}")" "$(basename "${bin}")"
               fi
             done
 
         - name: Upload rusty-relay-client artifact
+          if: startsWith(github.ref, 'refs/tags/')
           uses: actions/upload-artifact@v5
           with:
-            name: "rusty-relay-client-${{ matrix.platform }}-${{ matrix.arch }}"
-            path: "dist/rusty-relay-client-${{ matrix.platform }}-${{ matrix.arch }}.*"
+            name: "rusty-relay-client-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}"
+            path: "dist/rusty-relay-client-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.*"
 
         - name: Upload rusty-relay-server artifact
+          if: startsWith(github.ref, 'refs/tags/')
           uses: actions/upload-artifact@v5
           with:
-            name: "rusty-relay-server-${{ matrix.platform }}-${{ matrix.arch }}"
-            path: "dist/rusty-relay-server-${{ matrix.platform }}-${{ matrix.arch }}.*"
+            name: "rusty-relay-server-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}"
+            path: "dist/rusty-relay-server-${{ github.ref_name }}-${{ matrix.platform }}-${{ matrix.arch }}.*"
   
   crates-io-release:
         if: startsWith(github.ref, 'refs/tags/')
