@@ -28,7 +28,7 @@ impl<'a> ProxyHandler<'a> {
         method: String,
         headers: HashMap<String, String>,
         body: Vec<u8>,
-    ) -> Result<RelayMessage, error::Error> {
+    ) -> Result<Option<RelayMessage>, error::Error> {
         let url = if let Some(p) = path.as_ref() {
             &format!("{}/{}", self.target, p)
         } else {
@@ -40,28 +40,33 @@ impl<'a> ProxyHandler<'a> {
             request_headers.insert(k.parse::<HeaderName>()?, v.parse::<HeaderValue>()?);
         }
 
-        let res = self
+        let response = self
             .http_client
             .request(Method::from_str(&method)?, url)
             .headers(request_headers)
             .body(body)
             .send()
-            .await?;
+            .await
+            .map_err(|err| println!("⚠️ WARNING: request to {} failed: {err}", &self.target));
 
-        let mut response_headers = HashMap::new();
-        for (k, v) in res.headers() {
-            if let Ok(value) = v.to_str() {
-                response_headers.insert(k.to_string(), value.to_string());
+        if let Ok(res) = response {
+            let mut response_headers = HashMap::new();
+            for (k, v) in res.headers() {
+                if let Ok(value) = v.to_str() {
+                    response_headers.insert(k.to_string(), value.to_string());
+                }
             }
-        }
-        let status = res.status().as_u16();
+            let status = res.status().as_u16();
 
-        Ok(RelayMessage::ProxyResponse {
-            request_id,
-            body: res.bytes().await?.to_vec(),
-            headers: response_headers,
-            status,
-        })
+            return Ok(Some(RelayMessage::ProxyResponse {
+                request_id,
+                body: res.bytes().await?.to_vec(),
+                headers: response_headers,
+                status,
+            }));
+        }
+
+        Ok(None)
     }
 
     pub fn print_url(&self, client_id: &str, protocol: &str, server: &str) {

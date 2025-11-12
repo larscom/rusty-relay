@@ -92,7 +92,7 @@ impl<'a> Client<'a> {
                     .handle(request_id, path, method, headers, body)
                     .await?;
 
-                return Ok(Some(proxy_response));
+                return Ok(proxy_response);
             }
             _ => {}
         }

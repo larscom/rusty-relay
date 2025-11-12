@@ -17,21 +17,24 @@ impl<'a> WebhookHandler<'a> {
     }
 
     pub async fn handle(&self, payload: &str) -> Result<(), error::Error> {
-        let res = self
+        let response: Result<reqwest::Response, ()> = self
             .http_client
             .post(self.target)
             .body(payload.to_string())
             .send()
-            .await?;
+            .await
+            .map_err(|err| println!("⚠️ WARNING: request to {} failed: {err}", &self.target));
 
-        println!(
-            "➡️ forwarded webhook to {}, got {}",
-            self.target,
-            res.status()
-        );
+        if let Ok(res) = response {
+            println!(
+                "➡️ forwarded webhook to {}, got {}",
+                self.target,
+                res.status()
+            );
 
-        if res.status().is_client_error() || res.status().is_server_error() {
-            println!("{}", res.text().await?)
+            if res.status().is_client_error() || res.status().is_server_error() {
+                println!("{}", res.text().await?);
+            }
         }
 
         Ok(())

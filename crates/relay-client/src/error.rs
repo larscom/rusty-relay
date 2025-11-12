@@ -15,8 +15,8 @@ pub enum Error {
     #[error("failed to parse relay message: {0}")]
     ParseFailed(#[from] serde_json::Error),
 
-    #[error("http request failed: {0}")]
-    HttpRequestFailed(#[from] reqwest::Error),
+    #[error("http client error: {0}")]
+    HttpClientFailed(#[from] reqwest::Error),
 
     #[error("invalid HTTP method: {0}")]
     InvalidMethod(#[from] tungstenite::http::method::InvalidMethod),
