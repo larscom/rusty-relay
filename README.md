@@ -93,7 +93,7 @@ Options:
 ```
 
 ### Running the Client against the test server
-You can connect to the online test server to see how it works.
+You can connect to the test server to see how it works.
 
 ```bash
 rusty-relay-client --server rusty-relay.larscom.nl  --target http://localhost:8080 --token pSyyI54kOhq8yZcV7YOEMKFw
