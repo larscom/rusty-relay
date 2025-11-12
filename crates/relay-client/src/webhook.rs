@@ -1,5 +1,7 @@
 use reqwest::Client;
 
+use crate::error;
+
 #[derive(Debug)]
 pub struct WebhookHandler<'a> {
     target: &'a str,
@@ -14,7 +16,7 @@ impl<'a> WebhookHandler<'a> {
         }
     }
 
-    pub async fn handle(&self, payload: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn handle(&self, payload: &str) -> Result<(), error::Error> {
         let res = self
             .http_client
             .post(self.target)

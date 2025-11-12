@@ -1,4 +1,4 @@
-use crate::{cli, proxy::ProxyHandler, tls, webhook::WebhookHandler};
+use crate::{cli, error, proxy::ProxyHandler, tls, webhook::WebhookHandler};
 use futures_util::{SinkExt, StreamExt};
 use rusty_relay_messages::RelayMessage;
 use tokio_tungstenite::{
@@ -26,7 +26,7 @@ impl<'a> Client<'a> {
         }
     }
 
-    pub async fn connect_blocking(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn connect_blocking(&self) -> Result<(), error::Error> {
         let insecure = self.cli_args.insecure;
         let connect = connect_async_tls_with_config;
         let tls_connector = tls::connector(&self.cli_args.ca_cert);
@@ -65,7 +65,7 @@ impl<'a> Client<'a> {
     async fn handle_message(
         &self,
         message: Utf8Bytes,
-    ) -> Result<Option<RelayMessage>, Box<dyn std::error::Error>> {
+    ) -> Result<Option<RelayMessage>, error::Error> {
         match serde_json::from_slice::<RelayMessage>(message.as_bytes())? {
             RelayMessage::Webhook { ref payload } => {
                 self.webhook_handler.handle(payload).await?;

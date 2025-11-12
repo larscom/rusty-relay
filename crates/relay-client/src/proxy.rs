@@ -5,6 +5,8 @@ use reqwest::{
 use rusty_relay_messages::RelayMessage;
 use std::{collections::HashMap, str::FromStr};
 
+use crate::error;
+
 #[derive(Debug)]
 pub struct ProxyHandler<'a> {
     target: &'a str,
@@ -26,7 +28,7 @@ impl<'a> ProxyHandler<'a> {
         method: String,
         headers: HashMap<String, String>,
         body: Vec<u8>,
-    ) -> Result<RelayMessage, Box<dyn std::error::Error>> {
+    ) -> Result<RelayMessage, error::Error> {
         let url = if let Some(p) = path.as_ref() {
             &format!("{}/{}", self.target, p)
         } else {

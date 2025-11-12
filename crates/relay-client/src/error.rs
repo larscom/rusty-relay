@@ -3,9 +3,21 @@ use tokio_tungstenite::tungstenite;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("Into client request error: {0}")]
-    IntoClientRequest(#[from] tungstenite::error::Error),
+    #[error("into client request error: {0}")]
+    InvalidClientRequest(#[from] tungstenite::error::Error),
 
-    #[error("HeaderValue error: {0}")]
-    HeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+    #[error("header value error: {0}")]
+    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+
+    #[error("header name error: {0}")]
+    InvalidHeaderName(#[from] reqwest::header::InvalidHeaderName),
+
+    #[error("failed to parse relay message: {0}")]
+    ParseFailed(#[from] serde_json::Error),
+
+    #[error("http request failed: {0}")]
+    HttpRequestFailed(#[from] reqwest::Error),
+
+    #[error("invalid HTTP method: {0}")]
+    InvalidMethod(#[from] tungstenite::http::method::InvalidMethod),
 }
