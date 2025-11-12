@@ -125,7 +125,16 @@ jobs:
 
           - name: Install Rust
             uses: dtolnay/rust-toolchain@stable
- 
+
+          - name: Copy README.md to all crates
+            run: |
+              for dir in crates/*/; do
+                if [ -d "$dir" ]; then
+                  cp README.md "$dir"
+                  echo "Copied README.md to $dir"
+                fi
+              done
+
           - name: Update relay-messages version
             run: |
               version=${{ github.ref_name }}

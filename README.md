@@ -92,6 +92,13 @@ Options:
   -h, --help               Print help
 ```
 
+### Running the Client against the test server
+You can connect to the online test server to see how it works.
+
+```bash
+rusty-relay-client --server rusty-relay.larscom.nl  --target http://localhost:8080 --token pSyyI54kOhq8yZcV7YOEMKFw
+```
+
 ## 🌍 Environment variables
 
 These are environment variables for the server.
