@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(name = "rusty-relay")]
 pub struct Args {
-    #[arg(long)]
+    #[arg(long, short)]
     /// The rusty-relay-server hostname e.g: localhost:8080 or my.server.com
     pub server: String,
 
@@ -15,11 +15,11 @@ pub struct Args {
     /// Target URL to local webserver e.g: http://localhost:3000/api/webhook
     pub target: String,
 
-    #[arg(long)]
+    #[arg(long, short)]
     /// Connect to rusty-relay-server without TLS
     pub insecure: bool,
 
-    #[arg(long)]
+    #[arg(long, short)]
     /// Path to CA certificate (PEM encoded)
     pub ca_cert: Option<String>,
 }

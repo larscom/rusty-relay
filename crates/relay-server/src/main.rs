@@ -43,19 +43,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(tls_config) = tls::config().await {
         let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_else("HTTPS_PORT", || 8443)));
-        tracing::info!(
-            "🚀 server running (https) on https://{addr}/health - connect token: {}",
-            state.connect_token
-        );
+        tracing::info!("🚀 server running (https) on https://{addr}/health");
+        tracing::info!("🔑 connect token: {}", &state.connect_token);
+
         axum_server::bind_rustls(addr, tls_config)
             .serve(router.into_make_service())
             .await?;
     } else {
         let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_else("HTTP_PORT", || 8080)));
-        tracing::info!(
-            "🚀 server running (http) on http://{addr}/health - connect token: {}",
-            state.connect_token
-        );
+        tracing::info!("🚀 server running (http) on http://{addr}/health");
+        tracing::info!("🔑 connect token: {}", &state.connect_token);
+
         axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
     }
 
