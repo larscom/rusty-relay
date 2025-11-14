@@ -22,6 +22,7 @@ Rusty Relay is a simple relay server that can forward webhooks and websites to a
 - **Relay website**: Serve your newly build **React** application locally and give a public URL to anyone in the world.
 - **Secure**: Supports TLS for encrypted communication between server and client.
 - **No account setup**: Clients do not need accounts to connect to the server.
+- **Low memory usage**: The server (in docker) only uses like 4MB memory.
 
 ## 🏁 Getting Started
 
