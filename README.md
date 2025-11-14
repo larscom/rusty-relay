@@ -108,11 +108,18 @@ If you want to serve your `react` application locally, you first have to build i
 
 For example:
 ```bash
-# install http-server globally
-npm i -g http-server
+# install http-server globally via npm
+npm install -g http-server
 
-# serve your freshly build react app
-http-server ./dist
+# serve your freshly build react app on port 8080
+http-server ./dist --port 8080
+```
+Then run the client
+```bash
+rusty-relay-client \
+  --server my.server.com \
+  --target http://localhost:8080 \
+  --token my_token
 ```
 
 ## 🌍 Environment variables
