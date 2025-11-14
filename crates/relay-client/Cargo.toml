@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "development-tools"]
 [dependencies]
 tokio-tungstenite = { version = "0.28.0", features = ["rustls-tls-webpki-roots"] }
 reqwest = { version = "0.12.24", features = ["json", "rustls-tls"] }
-clap = { version = "4.5.51", features = ["derive"] }
+clap = { version = "4.5.51", features = ["derive", "env"] }
 futures-util = "0.3.31"
 rusty-relay-messages = { path = "../relay-messages" }
 serde_json = { workspace = true }

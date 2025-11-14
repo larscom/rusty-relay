@@ -19,12 +19,13 @@ Rusty Relay is a simple relay server that can forward webhooks and other request
 ## ✨ Features
 
 - **Relay webhooks**: Forwards webhooks to a local machine.
-- **Relay frontend**: Serve your newly build **React** application locally and give a public URL to anyone in the world.
+- **Relay website**: Serve your newly build **React** application locally and give a public URL to anyone in the world.
 - **Secure**: Supports TLS for encrypted communication between server and client.
+- **No account setup**: Clients do not need accounts to connect to the server.
 
 ## 🏁 Getting Started
 
-### Running the Server (docker, preferred way)
+### Running the Server (docker)
 
 The preferred way of running the server is via docker and behind a reverse proxy that handles TLS certificates so the client can connect securely via websockets.
 
@@ -84,16 +85,16 @@ Or simply download the client binary for your platform: https://github.com/larsc
 Usage: rusty-relay-client [OPTIONS] --server <SERVER> --token <TOKEN> --target <TARGET>
 
 Options:
-  -s, --server <SERVER>    The rusty-relay-server hostname e.g: localhost:8080 or my.server.com
-      --token <TOKEN>      The connection token generated on rusty-relay-server
-      --target <TARGET>    Target URL to local webserver e.g: http://localhost:3000/api/webhook
+  -s, --server <SERVER>    The rusty-relay-server hostname e.g: localhost:8080 or my.server.com [env: RUSTY_RELAY_SERVER=]
+      --token <TOKEN>      The connection token generated on rusty-relay-server [env: RUSTY_RELAY_TOKEN=]
+      --target <TARGET>    Target URL to local webserver e.g: http://localhost:3000/api/webhook [env: RUSTY_RELAY_TARGET=]
   -i, --insecure           Connect to rusty-relay-server without TLS
-  -c, --ca-cert <CA_CERT>  Path to CA certificate (PEM encoded)
+  -c, --ca-cert <CA_CERT>  Path to CA certificate (PEM encoded) [env: RUSTY_RELAY_CA_CERT=]
   -h, --help               Print help
 ```
 
 ### Running the Client against the test server
-You can connect to the test server to see how it works.
+You can connect to the test server to see how it works, feel free to use it.
 
 ```bash
 rusty-relay-client --server rusty-relay.larscom.nl  --target http://localhost:8080 --token pSyyI54kOhq8yZcV7YOEMKFw
@@ -101,16 +102,27 @@ rusty-relay-client --server rusty-relay.larscom.nl  --target http://localhost:80
 
 ## 🌍 Environment variables
 
-These are environment variables for the server.
+### Server environment variables
 
-| Variable | Type | Description | Required | Default |
-|-----------|------|-------------|-----------|----------|
-| `HTTP_PORT` | `int` | HTTP port on which the server will listen | ❌ | `8080` |
-| `HTTPS_PORT` | `int` | HTTPS port on which the server will listen | ❌ | `8443` |
-| `CONNECT_TOKEN` | `string` | Make the connection token static | ❌ | `<auto generated>` |
-| `TLS_CERT_FILE` | `string` | Path to TLS certificate (PEM encoded)  | ❌ | `./certs/cert.pem` |
-| `TLS_KEY_FILE` | `string` | Path to TLS private key | ❌ | `./certs/key.pem` |
-| `RUST_LOG` | `string` | The log level, set to `debug` to enable debug | ❌ | `rusty_relay_server=info` |
+| Variable        | Description                                        | Required | Default                   |
+| --------------- | -------------------------------------------------- | -------- | ------------------------- |
+| `HTTP_PORT`     | HTTP port on which the server will listen          | ❌        | `8080`                    |
+| `HTTPS_PORT`    | HTTPS port on which the server will listen         | ❌        | `8443`                    |
+| `CONNECT_TOKEN` | Make the connection token static                   | ❌        | `<auto generated>`        |
+| `TLS_CERT_FILE` | Path to TLS certificate (PEM encoded)              | ❌        | `./certs/cert.pem`        |
+| `TLS_KEY_FILE`  | Path to TLS private key                            | ❌        | `./certs/key.pem`         |
+| `RUST_LOG`      | The log level, set to `debug` to enable debug logs | ❌        | `rusty_relay_server=info` |
+
+### Client environment variables
+
+If you set the `RUSTY_RELAY_SERVER`, `RUSTY_RELAY_TOKEN`, `RUSTY_RELAY_TARGET` variables you can use the client without arguments.
+
+| Variable              | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| `RUSTY_RELAY_SERVER`  | The rusty-relay-server hostname e.g: localhost:8080 or my.server.com |
+| `RUSTY_RELAY_TOKEN`   | The connection token generated on rusty-relay-server          |
+| `RUSTY_RELAY_TARGET`  | Target URL to local webserver e.g: http://localhost:3000/api/webhook               |
+| `RUSTY_RELAY_CA_CERT` | Path to the CA certificate (PEM encoded)                |
 
 ## 📜 License
 
