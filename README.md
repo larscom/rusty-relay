@@ -81,6 +81,9 @@ Or simply download the client binary for your platform: https://github.com/larsc
 
 ### Running the Client
 
+![Client](https://raw.githubusercontent.com/larscom/rusty-relay/main/.github/image/client-example.png)
+
+
 ```bash
 Usage: rusty-relay-client [OPTIONS] --server <SERVER> --token <TOKEN> --target <TARGET>
 
