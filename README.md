@@ -106,11 +106,11 @@ rusty-relay-client --server rusty-relay.larscom.nl  --target http://localhost:80
 
 | Variable        | Description                                        | Required | Default                   |
 | --------------- | -------------------------------------------------- | -------- | ------------------------- |
-| `HTTP_PORT`     | HTTP port on which the server will listen          | ❌        | `8080`                    |
-| `HTTPS_PORT`    | HTTPS port on which the server will listen         | ❌        | `8443`                    |
-| `CONNECT_TOKEN` | Make the connection token static                   | ❌        | `<auto generated>`        |
-| `TLS_CERT_FILE` | Path to TLS certificate (PEM encoded)              | ❌        | `./certs/cert.pem`        |
-| `TLS_KEY_FILE`  | Path to TLS private key                            | ❌        | `./certs/key.pem`         |
+| `RUSTY_RELAY_HTTP_PORT`     | HTTP port on which the server will listen          | ❌        | `8080`                    |
+| `RUSTY_RELAY_HTTPS_PORT`    | HTTPS port on which the server will listen         | ❌        | `8443`                    |
+| `RUSTY_RELAY_CONNECT_TOKEN` | Make the connection token static                   | ❌        | `<auto generated>`        |
+| `RUSTY_RELAY_TLS_CERT_FILE` | Path to TLS certificate (PEM encoded)              | ❌        | `./certs/cert.pem`        |
+| `RUSTY_RELAY_TLS_KEY_FILE`  | Path to TLS private key                            | ❌        | `./certs/key.pem`         |
 | `RUST_LOG`      | The log level, set to `debug` to enable debug logs | ❌        | `rusty_relay_server=info` |
 
 ### Client environment variables

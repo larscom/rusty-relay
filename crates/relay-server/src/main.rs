@@ -42,7 +42,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(state.clone());
 
     if let Some(tls_config) = tls::config().await {
-        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_else("HTTPS_PORT", || 8443)));
+        let addr = SocketAddr::from((
+            [0, 0, 0, 0],
+            from_env_or_else("RUSTY_RELAY_HTTPS_PORT", || 8443),
+        ));
         tracing::info!("🚀 server running (https) on https://{addr}/health");
         tracing::info!("🔑 connect token: {}", &state.connect_token);
 
@@ -50,7 +53,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .serve(router.into_make_service())
             .await?;
     } else {
-        let addr = SocketAddr::from(([0, 0, 0, 0], from_env_or_else("HTTP_PORT", || 8080)));
+        let addr = SocketAddr::from((
+            [0, 0, 0, 0],
+            from_env_or_else("RUSTY_RELAY_HTTP_PORT", || 8080),
+        ));
         tracing::info!("🚀 server running (http) on http://{addr}/health");
         tracing::info!("🔑 connect token: {}", &state.connect_token);
 

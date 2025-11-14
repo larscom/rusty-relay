@@ -10,8 +10,10 @@ pub fn init() {
 
 pub async fn config() -> Option<RustlsConfig> {
     RustlsConfig::from_pem_file(
-        from_env_or_else("TLS_CERT_FILE", || "./certs/cert.pem".to_string()),
-        from_env_or_else("TLS_KEY_FILE", || "./certs/key.pem".to_string()),
+        from_env_or_else("RUSTY_RELAY_TLS_CERT_FILE", || {
+            "./certs/cert.pem".to_string()
+        }),
+        from_env_or_else("RUSTY_RELAY_TLS_KEY_FILE", || "./certs/key.pem".to_string()),
     )
     .await
     .ok()

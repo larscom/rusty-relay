@@ -35,7 +35,7 @@ impl AppState {
             clients,
             proxy_requests: Mutex::new(HashMap::new()),
             rx_client_evictor,
-            connect_token: from_env_or_else("CONNECT_TOKEN", || generate_id(24)),
+            connect_token: from_env_or_else("RUSTY_RELAY_CONNECT_TOKEN", || generate_id(24)),
         }
     }
 
