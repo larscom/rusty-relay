@@ -47,7 +47,12 @@ impl<'a> ProxyHandler<'a> {
             .body(body)
             .send()
             .await
-            .map_err(|err| println!("⚠️ WARNING: request to {} failed: {err}", &self.target));
+            .map_err(|err| {
+                println!(
+                    "⚠️ WARNING: request ({method}) to {} failed: {err}",
+                    &self.target
+                )
+            });
 
         if let Ok(res) = response {
             let mut response_headers = HashMap::new();

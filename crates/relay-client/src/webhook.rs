@@ -39,7 +39,12 @@ impl<'a> WebhookHandler<'a> {
             .body(body)
             .send()
             .await
-            .map_err(|err| println!("⚠️ WARNING: request to {} failed: {err}", &self.target));
+            .map_err(|err| {
+                println!(
+                    "⚠️ WARNING: request ({method}) to {} failed: {err}",
+                    &self.target
+                )
+            });
 
         if let Ok(res) = response {
             println!(
@@ -50,7 +55,7 @@ impl<'a> WebhookHandler<'a> {
             );
 
             if res.status().is_client_error() || res.status().is_server_error() {
-                println!("{}", res.text().await?);
+                println!("❌ ERROR:\n{}", res.text().await?);
             }
         }
 
