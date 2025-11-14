@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  A self hostable server that can relay webhooks and other requests to a local webserver using the included CLI client.
+  A self-hostable server that forwards webhooks and websites to a local web server using the included CLI client.
 </p>
 
 ---
