@@ -81,7 +81,7 @@ Or simply download the client binary for your platform: https://github.com/larsc
 
 ### Running the Client
 
-![Client](https://raw.githubusercontent.com/larscom/rusty-relay/main/.github/image/client-example.png)
+![Client](https://github.com/larscom/rusty-relay/blob/main/.github/image/client-example.png)
 
 
 ```bash
