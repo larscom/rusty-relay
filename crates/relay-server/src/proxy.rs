@@ -4,7 +4,11 @@ use axum::{
     body::Body,
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
+};
+use axum_extra::extract::{
+    CookieJar,
+    cookie::{Cookie, Expiration},
 };
 use rusty_relay_messages::RelayMessage;
 use tokio::sync::oneshot;
@@ -38,7 +42,7 @@ pub async fn proxy_handler(
     headers: HeaderMap,
     method: axum::http::Method,
     body: axum::body::Bytes,
-) -> impl IntoResponse {
+) -> (CookieJar, Response) {
     let request_id = generate_id(20);
     tracing::info!("🖥 proxy request ({request_id}) received for client id: {client_id}");
 
@@ -70,6 +74,14 @@ pub async fn proxy_handler(
             .insert(request_id, resp_tx);
     }
 
+    let client_id_cookie = Cookie::build(("client_id", client_id.clone()))
+        .expires(Expiration::Session)
+        .path("/")
+        .http_only(true)
+        .build();
+
+    let cookie_jar = CookieJar::new().add(client_id_cookie);
+
     match tokio::time::timeout(std::time::Duration::from_secs(5), resp_rx).await {
         Ok(Ok(RelayMessage::ProxyResponse {
             body,
@@ -81,36 +93,17 @@ pub async fn proxy_handler(
             for (k, v) in headers.iter().filter(|(k, _)| *k != "content-length") {
                 response = response.header(k, v);
             }
-
-            let content_type = headers.get("content-type");
-            match content_type {
-                Some(ct) => {
-                    if ct.contains("text/html") {
-                        let html = regex::Regex::new(r#"(src|href)="(/?)([^"]*)""#)
-                            .expect("valid regex")
-                            .replace_all(
-                                &String::from_utf8_lossy(&body),
-                                format!(r#"$1="/proxy/{client_id}/$3""#),
-                            )
-                            .into_owned();
-
-                        response
-                            .body(Body::from(html))
-                            .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))
-                            .into_response()
-                    } else {
-                        response
-                            .body(Body::from(body))
-                            .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))
-                            .into_response()
-                    }
-                }
-                None => response
+            (
+                cookie_jar,
+                response
                     .body(Body::from(body))
                     .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))
                     .into_response(),
-            }
+            )
         }
-        _ => (StatusCode::GATEWAY_TIMEOUT, "Timeout").into_response(),
+        _ => (
+            cookie_jar,
+            (StatusCode::GATEWAY_TIMEOUT, "Timeout").into_response(),
+        ),
     }
 }

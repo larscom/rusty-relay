@@ -5,6 +5,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use crate::{state::AppState, util::from_env_or_else};
 
+mod catch_all;
 mod health;
 mod proxy;
 mod state;
@@ -39,6 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             routing::any(proxy::proxy_handler_without_path),
         )
         .route("/health", routing::get(health::health_handler))
+        .route("/{*path}", routing::any(catch_all::catch_all_handler))
         .with_state(state.clone());
 
     if let Some(tls_config) = tls::config().await {
