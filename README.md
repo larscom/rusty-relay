@@ -14,7 +14,7 @@
 
 ## 🚀 What is Rusty Relay?
 
-Rusty Relay is a simple relay server that can forward webhooks and other requests to a local machine. It's a simplified version of the popular [ngrok](https://ngrok.com/), but instead focuses on being simple and self hostable and purely made for development.
+Rusty Relay is a simple relay server that can forward webhooks and websites to a local machine. It's a simplified version of the popular [ngrok](https://ngrok.com/), but instead focuses on being simple and self hostable and purely made for development.
 
 ## ✨ Features
 
@@ -97,7 +97,22 @@ Options:
 You can connect to the test server to see how it works, feel free to use it.
 
 ```bash
-rusty-relay-client --server rusty-relay.larscom.nl  --target http://localhost:8080 --token pSyyI54kOhq8yZcV7YOEMKFw
+rusty-relay-client \
+  --server rusty-relay.larscom.nl \
+  --target http://localhost:8080 \
+  --token pSyyI54kOhq8yZcV7YOEMKFw
+```
+
+## ⚛️ Serve React app locally
+If you want to serve your `react` application locally, you first have to build it with `vite` e.g. `npm run build` and then use a simple webserver like `http-server` to serve it.
+
+For example:
+```bash
+# install http-server globally
+npm i -g http-server
+
+# serve your freshly build react app
+http-server ./dist
 ```
 
 ## 🌍 Environment variables
