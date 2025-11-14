@@ -67,8 +67,12 @@ impl<'a> Client<'a> {
         message: Utf8Bytes,
     ) -> Result<Option<RelayMessage>, error::Error> {
         match serde_json::from_slice::<RelayMessage>(message.as_bytes())? {
-            RelayMessage::Webhook { ref payload } => {
-                self.webhook_handler.handle(payload).await?;
+            RelayMessage::Webhook {
+                method,
+                body,
+                headers,
+            } => {
+                self.webhook_handler.handle(method, headers, body).await?;
             }
             RelayMessage::ClientId(ref client_id) => {
                 let insecure = self.cli_args.insecure;

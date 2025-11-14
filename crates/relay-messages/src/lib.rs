@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RelayMessage {
     Webhook {
-        payload: String,
+        method: String,
+        headers: HashMap<String, String>,
+        body: Vec<u8>,
     },
     ClientId(String),
     ProxyRequest {

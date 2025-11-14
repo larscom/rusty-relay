@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/connect", routing::any(websocket::connect_handler))
         .route(
             "/webhook/{client_id}",
-            routing::post(webhook::webhook_handler),
+            routing::any(webhook::webhook_handler),
         )
         .route(
             "/proxy/{client_id}/{*path}",

@@ -1,4 +1,9 @@
-use reqwest::Client;
+use std::{collections::HashMap, str::FromStr};
+
+use reqwest::{
+    Client, Method,
+    header::{HeaderMap, HeaderName, HeaderValue},
+};
 
 use crate::error;
 
@@ -16,18 +21,30 @@ impl<'a> WebhookHandler<'a> {
         }
     }
 
-    pub async fn handle(&self, payload: &str) -> Result<(), error::Error> {
-        let response: Result<reqwest::Response, ()> = self
+    pub async fn handle(
+        &self,
+        method: String,
+        headers: HashMap<String, String>,
+        body: Vec<u8>,
+    ) -> Result<(), error::Error> {
+        let mut request_headers = HeaderMap::with_capacity(headers.len());
+        for (k, v) in headers {
+            request_headers.insert(k.parse::<HeaderName>()?, v.parse::<HeaderValue>()?);
+        }
+
+        let response = self
             .http_client
-            .post(self.target)
-            .body(payload.to_string())
+            .request(Method::from_str(&method)?, self.target)
+            .headers(request_headers)
+            .body(body)
             .send()
             .await
             .map_err(|err| println!("⚠️ WARNING: request to {} failed: {err}", &self.target));
 
         if let Ok(res) = response {
             println!(
-                "➡️ forwarded webhook to {}, got {}",
+                "➡️ forwarded webhook ({}) to {}, got {}",
+                method,
                 self.target,
                 res.status()
             );
