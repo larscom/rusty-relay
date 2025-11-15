@@ -78,10 +78,7 @@ jobs:
         - name: Update rusty-relay-client with version
           if: startsWith(github.ref, 'refs/tags/')
           run: |
-            version="${{ github.ref_name }}"
-            file="crates/relay-client/src/version.rs"
-
-            perl -pi -e "s/\{\{version\}\}/$version/g" "$file"
+            perl -pi -e "s/\{\{version\}\}/${{ github.ref_name }}/g" "crates/relay-client/src/version.rs"
 
         - name: Build
           run: cargo build --workspace --release --target ${{ matrix.target }}
