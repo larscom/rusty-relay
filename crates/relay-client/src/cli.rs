@@ -21,6 +21,10 @@ pub struct Args {
     #[arg(long, short, env = "RUSTY_RELAY_CA_CERT")]
     /// Path to CA certificate (PEM encoded)
     pub ca_cert: Option<String>,
+
+    #[arg(long, short)]
+    /// Show version info
+    pub version: bool,
 }
 
 pub fn args() -> Args {

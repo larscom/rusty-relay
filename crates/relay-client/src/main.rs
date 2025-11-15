@@ -6,6 +6,7 @@ mod cli;
 mod error;
 mod proxy;
 mod tls;
+mod version;
 mod webhook;
 mod websocket;
 
@@ -13,7 +14,12 @@ mod websocket;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tls::init();
 
+    if version::print_version() {
+        return Ok(());
+    }
+
     let args = cli::args();
+
     let http_client = reqwest::Client::builder().use_rustls_tls().build()?;
     let webhook_handler = WebhookHandler::new(&args.target, http_client.clone());
     let proxy_handler = ProxyHandler::new(&args.target, http_client);

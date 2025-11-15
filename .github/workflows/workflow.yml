@@ -75,6 +75,14 @@ jobs:
             key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
             restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-       
 
+        - name: Update rusty-relay-client with version
+          if: startsWith(github.ref, 'refs/tags/')
+          run: |
+            version="${{ github.ref_name }}"
+            file="crates/relay-client/src/version.rs"
+
+            perl -pi -e "s/\{\{version\}\}/$version/g" "$file"
+
         - name: Build
           run: cargo build --workspace --release --target ${{ matrix.target }}
 
