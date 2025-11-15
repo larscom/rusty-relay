@@ -19,6 +19,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
     tls::init();
 
+    tracing::info!(
+        "🦀 Rusty Relay Server :: {} ::",
+        from_env_or_else("VERSION", || "0.0.0".to_string())
+    );
+
     let state = Arc::new(AppState::new());
 
     let router = Router::new()

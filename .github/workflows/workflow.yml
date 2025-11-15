@@ -289,9 +289,12 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/rusty-relay:latest,ghcr.io/${{ github.repository_owner }}/rusty-relay:${{ github.ref_name }}
+          build-args: VERSION_ARG=${{ github.ref_name }}
+
       - uses: docker/build-push-action@v6
         if: startsWith(github.ref, 'refs/heads/')
         with:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/rusty-relay:${{ env.CLEANED_REF_NAME }}
+          build-args: VERSION_ARG=${{ github.sha }}@${{ env.CLEANED_REF_NAME }}
