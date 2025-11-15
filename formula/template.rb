@@ -27,6 +27,6 @@ class RustyRelayClient < Formula
   end
 
   test do
-    system "#{bin}/rusty-relay-client", "--version"
+    system "#{bin}/rusty-relay-client", "--help"
   end
 end

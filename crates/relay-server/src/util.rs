@@ -1,4 +1,5 @@
-use std::{fmt::Display, str::FromStr};
+use axum::http::HeaderMap;
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 pub fn from_env_or_else<T, F>(key: &str, f: F) -> T
 where
@@ -13,4 +14,16 @@ where
 
 pub fn generate_id(length: usize) -> String {
     nanoid::nanoid!(length, &nanoid::alphabet::SAFE[2..])
+}
+
+pub fn into_hashmap(headers: HeaderMap) -> HashMap<String, String> {
+    headers
+        .iter()
+        .filter_map(|(k, v)| {
+            v.to_str()
+                .ok()
+                .map(|v| v.to_string())
+                .map(|v| (k.to_string(), v))
+        })
+        .collect()
 }

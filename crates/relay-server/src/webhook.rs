@@ -1,4 +1,4 @@
-use crate::state::AppState;
+use crate::{state::AppState, util};
 use axum::{
     extract::{Path, State},
     http::{HeaderMap, StatusCode},
@@ -15,6 +15,7 @@ pub async fn webhook_handler(
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
     tracing::info!("📩 webhook ({method}) received for client with id: {client_id}");
+
     for (k, v) in headers.iter() {
         if let Ok(value) = v.to_str() {
             tracing::debug!("header: {} = {}", k, value);
@@ -28,17 +29,15 @@ pub async fn webhook_handler(
         let _ = sender.send(RelayMessage::Webhook {
             method: method.to_string(),
             body: body.to_vec(),
-            headers: headers
-                .iter()
-                .filter_map(|(k, v)| {
-                    v.to_str()
-                        .ok()
-                        .map(|v| v.to_string())
-                        .map(|v| (k.to_string(), v))
-                })
-                .collect(),
+            headers: util::into_hashmap(headers),
         });
+    } else {
+        return (
+            StatusCode::BAD_REQUEST,
+            format!("Client id is unknown: {}", client_id),
+        )
+            .into_response();
     }
 
-    StatusCode::OK
+    StatusCode::OK.into_response()
 }

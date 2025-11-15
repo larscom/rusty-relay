@@ -1,5 +1,7 @@
-use std::sync::Arc;
-
+use crate::{
+    state::AppState,
+    util::{self, generate_id},
+};
 use axum::{
     body::Body,
     extract::{Path, State},
@@ -11,9 +13,8 @@ use axum_extra::extract::{
     cookie::{Cookie, Expiration},
 };
 use rusty_relay_messages::RelayMessage;
+use std::sync::Arc;
 use tokio::sync::oneshot;
-
-use crate::{state::AppState, util::generate_id};
 
 pub async fn proxy_handler_with_path(
     state: State<Arc<AppState>>,
@@ -51,17 +52,18 @@ pub async fn proxy_handler(
             request_id: request_id.clone(),
             path,
             method: method.to_string(),
-            headers: headers
-                .iter()
-                .filter_map(|(k, v)| {
-                    v.to_str()
-                        .ok()
-                        .map(|v| v.to_string())
-                        .map(|v| (k.to_string(), v))
-                })
-                .collect(),
+            headers: util::into_hashmap(headers),
             body: body.to_vec(),
         });
+    } else {
+        return (
+            CookieJar::default(),
+            (
+                StatusCode::BAD_REQUEST,
+                format!("Client id is unknown: {}", client_id),
+            )
+                .into_response(),
+        );
     }
 
     let (resp_tx, resp_rx) = oneshot::channel();
