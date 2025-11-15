@@ -103,6 +103,7 @@ Options:
       --target <TARGET>    Target URL to local webserver e.g: http://localhost:3000/api/webhook [env: RUSTY_RELAY_TARGET=]
   -i, --insecure           Connect to rusty-relay-server without TLS
   -c, --ca-cert <CA_CERT>  Path to CA certificate (PEM encoded) [env: RUSTY_RELAY_CA_CERT=]
+  -v, --version            Show version info
   -h, --help               Print help
 ```
 
