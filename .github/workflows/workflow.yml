@@ -194,6 +194,71 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  homebrew-release:
+        if: startsWith(github.ref, 'refs/tags/')
+        needs: crates-gh-release
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout repository
+            uses: actions/checkout@v5
+
+          - name: Set up variables
+            id: vars
+            run: |
+              VERSION=${{ github.ref_name }}
+              echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+              MACOS_INTEL_URL="https://github.com/larscom/rusty-relay/releases/download/$VERSION/rusty-relay-client-$VERSION-macos-x86_64.tar.gz"
+              MACOS_ARM_URL="https://github.com/larscom/rusty-relay/releases/download/$VERSION/rusty-relay-client-$VERSION-macos-arm64.tar.gz"
+              LINUX_INTEL_URL="https://github.com/larscom/rusty-relay/releases/download/$VERSION/rusty-relay-client-$VERSION-linux-x86_64.tar.gz"
+
+              echo "MACOS_INTEL_URL=$MACOS_INTEL_URL" >> $GITHUB_ENV
+              echo "MACOS_ARM_URL=$MACOS_ARM_URL" >> $GITHUB_ENV
+              echo "LINUX_INTEL_URL=$LINUX_INTEL_URL" >> $GITHUB_ENV
+
+          - name: Download release artifacts
+            run: |
+              curl -L -o macos-intel.tar.gz "$MACOS_INTEL_URL"
+              curl -L -o macos-arm.tar.gz "$MACOS_ARM_URL"
+              curl -L -o linux-intel.tar.gz "$LINUX_INTEL_URL"
+
+          - name: Compute SHA256
+            run: |
+              SHA256_MACOS_INTEL=$(sha256sum macos-intel.tar.gz | awk '{print $1}')
+              SHA256_MACOS_ARM=$(sha256sum macos-arm.tar.gz | awk '{print $1}')
+              SHA256_LINUX_INTEL=$(sha256sum linux-intel.tar.gz | awk '{print $1}')
+
+              echo "SHA256_MACOS_INTEL=$SHA256_MACOS_INTEL" >> $GITHUB_ENV
+              echo "SHA256_MACOS_ARM=$SHA256_MACOS_ARM" >> $GITHUB_ENV
+              echo "SHA256_LINUX_INTEL=$SHA256_LINUX_INTEL" >> $GITHUB_ENV
+
+          - name: Checkout homebrew tap
+            uses: actions/checkout@v3
+            with:
+              repository: larscom/homebrew-tap
+              token: ${{ secrets.HOMEBREW_TAP_PAT }}
+              path: homebrew-tap
+
+          - name: Update Formula from template
+            run: |
+              TEMPLATE="$(cat formula/template.rb)"
+
+              FORMULA="${TEMPLATE//\{\{version\}\}/$VERSION}"
+              FORMULA="${FORMULA//\{\{sha256_macos_intel\}\}/$SHA256_MACOS_INTEL}"
+              FORMULA="${FORMULA//\{\{sha256_macos_arm\}\}/$SHA256_MACOS_ARM}"
+              FORMULA="${FORMULA//\{\{sha256_linux_intel\}\}/$SHA256_LINUX_INTEL}"
+
+              echo "$FORMULA" > homebrew-tap/Formula/rusty_relay_client.rb
+
+          - name: Commit and push
+            run: |
+              cd homebrew-tap
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add Formula/rusty_relay_client.rb
+              git commit -m "Update rusty_relay_client.rb to version $VERSION"
+              git push         
+
   docker-ghcr-release:
     if: github.event_name != 'pull_request'
     needs: crates-build

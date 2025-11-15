@@ -73,7 +73,16 @@ Or change the environment variables where the server should look for those files
 
 ### Installing the Client
 
-Using cargo
+#### 🍺 Homebrew
+```bash
+# add tap
+brew tap larscom/tap
+
+# install binary
+brew install larscom/tap/rusty_relay_client
+```
+
+##### 📦 Cargo
 ```bash
 cargo install rusty-relay-client
 ```

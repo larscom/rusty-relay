@@ -1,7 +1,7 @@
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(name = "rusty-relay")]
+#[command(version)]
 pub struct Args {
     #[arg(long, short, env = "RUSTY_RELAY_SERVER")]
     /// The rusty-relay-server hostname e.g: localhost:8080 or my.server.com
