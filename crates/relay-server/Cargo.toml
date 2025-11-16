@@ -11,11 +11,11 @@ keywords = ["server", "proxy", "relay", "rest", "webhooks"]
 categories = ["development-tools"]
 
 [dependencies]
-axum = { version = "0.8.6", features = ["ws"] }
+axum = { version = "0.8.7", features = ["ws"] }
 axum-server = { version = "0.7.2", default-features = false, features = [
   "tls-rustls-no-provider",
 ] }
-axum-extra = { version = "0.12.1", features = ["cookie"] }
+axum-extra = { version = "0.12.2", features = ["cookie"] }
 tokio-stream = "0.1.17"
 moka = { version = "0.12.11", features = ["future"] }
 nanoid = "0.4.0"
