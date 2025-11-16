@@ -238,7 +238,7 @@ jobs:
               echo "SHA256_LINUX_INTEL=$SHA256_LINUX_INTEL" >> $GITHUB_ENV
 
           - name: Checkout homebrew tap
-            uses: actions/checkout@v3
+            uses: actions/checkout@v5
             with:
               repository: larscom/homebrew-tap
               token: ${{ secrets.HOMEBREW_TAP_PAT }}
