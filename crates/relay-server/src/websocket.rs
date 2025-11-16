@@ -1,3 +1,4 @@
+use crate::{state::AppState, util::generate_id};
 use axum::{
     extract::{
         State, WebSocketUpgrade,
@@ -11,8 +12,6 @@ use std::{sync::Arc, time::Duration};
 use tokio::time;
 use tokio_stream::StreamExt;
 
-use crate::{state::AppState, util::generate_id};
-
 pub async fn connect_handler(
     ws: WebSocketUpgrade,
     headers: HeaderMap,
@@ -21,7 +20,7 @@ pub async fn connect_handler(
     match headers.get("PRIVATE-TOKEN") {
         Some(token) => match token.to_str() {
             Ok(token) => {
-                if token == state.connect_token {
+                if token == state.connect_token() {
                     let client_id = generate_id(12);
 
                     tracing::info!("👨 client connected with id: {client_id}");
@@ -62,7 +61,7 @@ async fn handle_ws(mut socket: WebSocket, client_id: String, state: State<Arc<Ap
         return;
     }
 
-    let (mut rx_relay, mut rx_client_evictor) = state.register_client(&client_id).await;
+    let mut rx_relay = state.add_client(&client_id).await;
     let mut ping_interval = time::interval(Duration::from_secs(25));
 
     loop {
@@ -88,12 +87,6 @@ async fn handle_ws(mut socket: WebSocket, client_id: String, state: State<Arc<Ap
                     break;
                 }
             }
-            Ok(rx_client_id) = rx_client_evictor.recv() => {
-                if rx_client_id == client_id {
-                    tracing::info!("⏰ client id: {client_id} has expired");
-                    break;
-                }
-            }
             Some(result) = socket.next() => {
                 match result {
                     Ok(Message::Close(_)) => {
@@ -103,7 +96,7 @@ async fn handle_ws(mut socket: WebSocket, client_id: String, state: State<Arc<Ap
                     Ok(Message::Text(message)) => {
                        tracing::debug!("received message from client: {}", message);
                        if let Ok(RelayMessage::ProxyResponse { request_id, body, headers, status }) = serde_json::from_slice::<RelayMessage>(message.as_bytes()) {
-                        if let Some(tx) = state.proxy_requests.lock().await.remove(&request_id) {
+                        if let Some(tx) = state.remove_proxy_request(&request_id).await {
                             let _ = tx.send(RelayMessage::ProxyResponse { request_id, body, headers, status });
                         }
                        } else {
@@ -119,6 +112,8 @@ async fn handle_ws(mut socket: WebSocket, client_id: String, state: State<Arc<Ap
             }
         }
     }
+
+    state.remove_client(&client_id).await;
 
     tracing::info!("👨 client disconnected with id: {client_id}");
 }

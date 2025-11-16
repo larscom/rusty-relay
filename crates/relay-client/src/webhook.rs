@@ -64,6 +64,6 @@ impl<'a> WebhookHandler<'a> {
 
     pub fn print_url(&self, client_id: &str, protocol: &str, server: &str) {
         let webhook_url = format!("{}{}/webhook/{}", protocol, server, client_id);
-        println!("✅ You can send webhook requests to: {webhook_url}");
+        println!("✅ You can send webhooks to: {webhook_url}");
     }
 }

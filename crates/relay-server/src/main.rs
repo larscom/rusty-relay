@@ -1,9 +1,8 @@
 #![allow(clippy::collapsible_if)]
 
+use crate::{state::AppState, util::from_env_or_else};
 use axum::{Router, routing};
 use std::{net::SocketAddr, sync::Arc};
-
-use crate::{state::AppState, util::from_env_or_else};
 
 mod catch_all;
 mod health;
@@ -46,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route("/health", routing::get(health::health_handler))
         .route("/{*path}", routing::any(catch_all::catch_all_handler))
+        .route("/", routing::any(catch_all::root_handler))
         .with_state(state.clone());
 
     if let Some(tls_config) = tls::config().await {
@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             from_env_or_else("RUSTY_RELAY_HTTPS_PORT", || 8443),
         ));
         tracing::info!("🚀 server running (https) on https://{addr}/health");
-        tracing::info!("🔑 connect token: {}", &state.connect_token);
+        tracing::info!("🔑 connect token: {}", state.connect_token());
 
         axum_server::bind_rustls(addr, tls_config)
             .serve(router.into_make_service())
@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             from_env_or_else("RUSTY_RELAY_HTTP_PORT", || 8080),
         ));
         tracing::info!("🚀 server running (http) on http://{addr}/health");
-        tracing::info!("🔑 connect token: {}", &state.connect_token);
+        tracing::info!("🔑 connect token: {}", state.connect_token());
 
         axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
     }

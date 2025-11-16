@@ -68,13 +68,7 @@ pub async fn proxy_handler(
 
     let (resp_tx, resp_rx) = oneshot::channel();
 
-    {
-        state
-            .proxy_requests
-            .lock()
-            .await
-            .insert(request_id, resp_tx);
-    }
+    state.add_proxy_request(&request_id, resp_tx).await;
 
     let client_id_cookie = Cookie::build(("client_id", client_id.clone()))
         .expires(Expiration::Session)

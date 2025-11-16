@@ -12,6 +12,11 @@
 
 ---
 
+<p align="center">
+   <img src="https://github.com/larscom/rusty-relay/blob/main/.github/image/client-example.png" alt="client">
+</p>
+
+
 ## 🚀 What is Rusty Relay?
 
 Rusty Relay is a simple relay server that can forward webhooks and websites to a local machine. It's a simplified version of the popular [ngrok](https://ngrok.com/), but instead focuses on being simple and self hostable and purely made for development.
@@ -90,9 +95,6 @@ cargo install rusty-relay-client
 Or simply download the client binary for your platform: https://github.com/larscom/rusty-relay/releases
 
 ### Running the Client
-
-![Client](https://github.com/larscom/rusty-relay/blob/main/.github/image/client-example.png)
-
 
 ```bash
 Usage: rusty-relay-client [OPTIONS] --server <SERVER> --token <TOKEN> --target <TARGET>

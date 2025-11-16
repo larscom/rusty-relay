@@ -1,6 +1,5 @@
-use axum_server::tls_rustls::RustlsConfig;
-
 use crate::util::from_env_or_else;
+use axum_server::tls_rustls::RustlsConfig;
 
 pub fn init() {
     rustls::crypto::aws_lc_rs::default_provider()

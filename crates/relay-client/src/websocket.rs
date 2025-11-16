@@ -78,10 +78,9 @@ impl<'a> Client<'a> {
                 let insecure = self.cli_args.insecure;
                 let http_proto = if insecure { "http://" } else { "https://" };
 
-                self.proxy_handler
-                    .print_url(client_id, http_proto, &self.cli_args.server);
-
                 self.webhook_handler
+                    .print_url(client_id, http_proto, &self.cli_args.server);
+                self.proxy_handler
                     .print_url(client_id, http_proto, &self.cli_args.server);
             }
             RelayMessage::ProxyRequest {

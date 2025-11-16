@@ -1,11 +1,10 @@
+use crate::error;
 use reqwest::{
     Client, Method,
     header::{HeaderMap, HeaderName, HeaderValue},
 };
 use rusty_relay_messages::RelayMessage;
 use std::{collections::HashMap, str::FromStr};
-
-use crate::error;
 
 #[derive(Debug)]
 pub struct ProxyHandler<'a> {
@@ -76,6 +75,6 @@ impl<'a> ProxyHandler<'a> {
 
     pub fn print_url(&self, client_id: &str, protocol: &str, server: &str) {
         let proxy_url = format!("{}{}/proxy/{}", protocol, server, client_id);
-        println!("✅ You can send proxy requests to: {proxy_url}")
+        println!("✅ You can open local website at: {proxy_url}")
     }
 }
