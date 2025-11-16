@@ -12,7 +12,7 @@ categories = ["development-tools"]
 
 [dependencies]
 axum = { version = "0.8.7", features = ["ws"] }
-axum-server = { version = "0.7.2", default-features = false, features = [
+axum-server = { version = "0.7.3", default-features = false, features = [
   "tls-rustls-no-provider",
 ] }
 axum-extra = { version = "0.12.2", features = ["cookie"] }
