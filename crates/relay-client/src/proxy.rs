@@ -1,4 +1,4 @@
-use crate::error;
+use anyhow::Context;
 use reqwest::{
     Client, Method,
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -27,7 +27,7 @@ impl<'a> ProxyHandler<'a> {
         method: String,
         headers: HashMap<String, String>,
         body: Vec<u8>,
-    ) -> Result<Option<RelayMessage>, error::Error> {
+    ) -> anyhow::Result<Option<RelayMessage>> {
         let url = if let Some(p) = path.as_ref() {
             &format!("{}/{}", self.target, p)
         } else {
@@ -36,12 +36,23 @@ impl<'a> ProxyHandler<'a> {
 
         let mut request_headers = HeaderMap::with_capacity(headers.len());
         for (k, v) in headers {
-            request_headers.insert(k.parse::<HeaderName>()?, v.parse::<HeaderValue>()?);
+            request_headers.insert(
+                k.parse::<HeaderName>().with_context(|| {
+                    format!("failed to parse key: {} as header name for proxy", &k)
+                })?,
+                v.parse::<HeaderValue>().with_context(|| {
+                    format!("failed to parse value: {} as header value for proxy", &v)
+                })?,
+            );
         }
 
         let response = self
             .http_client
-            .request(Method::from_str(&method)?, url)
+            .request(
+                Method::from_str(&method)
+                    .with_context(|| format!("failed to parse http method: {}", &method))?,
+                url,
+            )
             .headers(request_headers)
             .body(body)
             .send()
@@ -49,7 +60,7 @@ impl<'a> ProxyHandler<'a> {
             .map_err(|err| {
                 println!(
                     "⚠️ WARNING: request ({method}) to {} failed: {err}",
-                    &self.target
+                    self.target
                 )
             });
 
@@ -64,7 +75,11 @@ impl<'a> ProxyHandler<'a> {
 
             return Ok(Some(RelayMessage::ProxyResponse {
                 request_id,
-                body: res.bytes().await?.to_vec(),
+                body: res
+                    .bytes()
+                    .await
+                    .context("failed to parse proxy response body bytes")?
+                    .to_vec(),
                 headers: response_headers,
                 status,
             }));

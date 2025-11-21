@@ -1,11 +1,10 @@
 use std::{collections::HashMap, str::FromStr};
 
+use anyhow::Context;
 use reqwest::{
     Client, Method,
     header::{HeaderMap, HeaderName, HeaderValue},
 };
-
-use crate::error;
 
 #[derive(Debug)]
 pub struct WebhookHandler<'a> {
@@ -26,15 +25,26 @@ impl<'a> WebhookHandler<'a> {
         method: String,
         headers: HashMap<String, String>,
         body: Vec<u8>,
-    ) -> Result<(), error::Error> {
+    ) -> anyhow::Result<()> {
         let mut request_headers = HeaderMap::with_capacity(headers.len());
         for (k, v) in headers {
-            request_headers.insert(k.parse::<HeaderName>()?, v.parse::<HeaderValue>()?);
+            request_headers.insert(
+                k.parse::<HeaderName>().with_context(|| {
+                    format!("failed to parse key: {} as header name for webhook", &k)
+                })?,
+                v.parse::<HeaderValue>().with_context(|| {
+                    format!("failed to parse value: {} as header value for webhook", &v)
+                })?,
+            );
         }
 
         let response = self
             .http_client
-            .request(Method::from_str(&method)?, self.target)
+            .request(
+                Method::from_str(&method)
+                    .with_context(|| format!("failed to parse http method: {}", &method))?,
+                self.target,
+            )
             .headers(request_headers)
             .body(body)
             .send()
@@ -42,7 +52,7 @@ impl<'a> WebhookHandler<'a> {
             .map_err(|err| {
                 println!(
                     "⚠️ WARNING: request ({method}) to {} failed: {err}",
-                    &self.target
+                    self.target
                 )
             });
 
@@ -55,7 +65,12 @@ impl<'a> WebhookHandler<'a> {
             );
 
             if res.status().is_client_error() || res.status().is_server_error() {
-                println!("❌ ERROR:\n{}", res.text().await?);
+                println!(
+                    "❌ ERROR:\n{}",
+                    res.text()
+                        .await
+                        .context("failed to parse webhook response body text")?
+                );
             }
         }
 

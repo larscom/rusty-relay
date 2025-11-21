@@ -1,4 +1,5 @@
-use crate::{cli, error, proxy::ProxyHandler, tls, webhook::WebhookHandler};
+use crate::{cli, proxy::ProxyHandler, tls, webhook::WebhookHandler};
+use anyhow::Context;
 use futures_util::{SinkExt, StreamExt};
 use rusty_relay_messages::RelayMessage;
 use tokio_tungstenite::{
@@ -26,17 +27,24 @@ impl<'a> Client<'a> {
         }
     }
 
-    pub async fn connect_blocking(&self) -> Result<(), error::Error> {
+    pub async fn connect_blocking(&self) -> anyhow::Result<()> {
         let insecure = self.cli_args.insecure;
         let connect = connect_async_tls_with_config;
-        let tls_connector = tls::connector(&self.cli_args.ca_cert);
+        let tls_connector = tls::connector(&self.cli_args.ca_cert)?;
+        let token = &self.cli_args.token;
 
         let ws_proto = if insecure { "ws://" } else { "wss://" };
         let url = format!("{}{}/connect", ws_proto, self.cli_args.server);
-        let mut request = url.into_client_request()?;
-        request
-            .headers_mut()
-            .insert("PRIVATE-TOKEN", self.cli_args.token.parse()?);
+        let mut request = url
+            .into_client_request()
+            .context("failed to create request url for websocket connection")?;
+
+        request.headers_mut().insert(
+            "PRIVATE-TOKEN",
+            token
+                .parse()
+                .with_context(|| format!("failed to parse token into header value: {}", token))?,
+        );
 
         match connect(request, None, false, tls_connector).await {
             Ok(ws_stream) => {
@@ -45,8 +53,13 @@ impl<'a> Client<'a> {
                     if let Ok(Message::Text(message)) = msg {
                         if let Some(response) = self.handle_message(message).await? {
                             write
-                                .send(Message::Text(serde_json::to_string(&response)?.into()))
-                                .await?;
+                                .send(Message::Text(
+                                    serde_json::to_string(&response)
+                                        .context("failed to serialize RelayMessage")?
+                                        .into(),
+                                ))
+                                .await
+                                .context("failed to write to websocket")?;
                         }
                     }
                 }
@@ -62,11 +75,10 @@ impl<'a> Client<'a> {
         Ok(())
     }
 
-    async fn handle_message(
-        &self,
-        message: Utf8Bytes,
-    ) -> Result<Option<RelayMessage>, error::Error> {
-        match serde_json::from_slice::<RelayMessage>(message.as_bytes())? {
+    async fn handle_message(&self, message: Utf8Bytes) -> anyhow::Result<Option<RelayMessage>> {
+        match serde_json::from_slice::<RelayMessage>(message.as_bytes())
+            .context("failed to deserialize into RelayMessage from bytes")?
+        {
             RelayMessage::Webhook {
                 method,
                 body,
