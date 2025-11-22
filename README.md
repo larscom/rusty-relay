@@ -87,6 +87,11 @@ brew tap larscom/tap
 brew install larscom/tap/rusty_relay_client
 ```
 
+#### 📟 Shell
+```bash
+curl -fsSL https://github.com/larscom/rusty-relay/tree/main/scripts/install.sh | sh
+```
+
 ##### 📦 Cargo
 ```bash
 cargo install rusty-relay-client
