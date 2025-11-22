@@ -3,8 +3,11 @@ set -e
 
 REPO="larscom/rusty-relay"
 BINARY="rusty-relay-client"
+TMPDIR=$(mktemp -d)
 : ${USE_SUDO:="true"}
 : ${INSTALL_DIR:="/usr/local/bin"}
+
+trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "🔍 Detecting platform..."
 
@@ -73,21 +76,22 @@ if [ -z "$URL" ]; then
 fi
 
 ARCHIVE_NAME="$ASSET_NAME.tar.gz"
+ARCHIVE_FILE="$TMPDIR/$ARCHIVE_NAME"
 
 echo "⬇ Downloading: $URL"
-curl -s -L -o "$ARCHIVE_NAME" "$URL"
+curl -s -L -o "$ARCHIVE_FILE" "$URL"
 
 if echo "$ARCHIVE_NAME" | grep -q ".tar.gz"; then
     echo "📂 Extracting..."
-    tar -xzf "$ARCHIVE_NAME"
+    tar -xzf "$ARCHIVE_FILE" -C "$TMPDIR"
 else
     echo "❌ Unexpected archive format (expected .tar.gz)"
     exit 1
 fi
 
-rm "$ARCHIVE_NAME"
+echo "📦 Installing to $INSTALL_DIR"
+runAsRoot install -m 755 "$TMPDIR/$BINARY" /usr/local/bin/$BINARY
 
-echo "➡ Moving $BINARY to $INSTALL_DIR"
-runAsRoot cp "$BINARY" "$INSTALL_DIR"
+rm -rf "$TMPDIR"
 
 echo "✔ Installed"
