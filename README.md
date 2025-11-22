@@ -31,6 +31,54 @@ Rusty Relay is a simple relay server that can forward webhooks and websites to a
 
 ## 🏁 Getting Started
 
+### Installing the Client
+
+#### 🍺 Homebrew
+```bash
+# add tap
+brew tap larscom/tap
+
+# install binary
+brew install larscom/tap/rusty_relay_client
+```
+
+#### 📟 Shell
+```bash
+curl -fsSL https://github.com/larscom/rusty-relay/tree/main/scripts/install.sh | sh
+```
+
+##### 📦 Cargo
+```bash
+cargo install rusty-relay-client
+```
+
+Or simply download the client binary for your platform: https://github.com/larscom/rusty-relay/releases
+
+### Running the Client
+
+```bash
+Usage: rusty-relay-client [OPTIONS] --server <SERVER> --token <TOKEN> --target <TARGET>
+
+Options:
+  -s, --server <SERVER>    The rusty-relay-server hostname e.g: localhost:8080 or my.server.com [env: RUSTY_RELAY_SERVER=]
+      --token <TOKEN>      The connection token generated on rusty-relay-server [env: RUSTY_RELAY_TOKEN=]
+      --target <TARGET>    Target URL to local webserver e.g: http://localhost:3000/api/webhook [env: RUSTY_RELAY_TARGET=]
+  -i, --insecure           Connect to rusty-relay-server without TLS
+  -c, --ca-cert <CA_CERT>  Path to CA certificate (PEM encoded) [env: RUSTY_RELAY_CA_CERT=]
+  -v, --version            Show version info
+  -h, --help               Print help
+```
+
+### Running the Client against the test server
+You can connect to the test server [rusty-relay.larscom.nl](https://rusty-relay.larscom.nl/health) to see how it works, feel free to use it as you like.
+
+```bash
+rusty-relay-client \
+  --server rusty-relay.larscom.nl \
+  --target http://localhost:8080 \
+  --token pSyyI54kOhq8yZcV7YOEMKFw
+```
+
 ### Running the Server (docker)
 
 The preferred way of running the server is via docker and behind a reverse proxy that handles TLS certificates so the client can connect securely via websockets.
@@ -75,54 +123,6 @@ Create a `certs` folder next to the binary with 2 files:
 - key.pem
 
 Or change the environment variables where the server should look for those files.
-
-### Installing the Client
-
-#### 🍺 Homebrew
-```bash
-# add tap
-brew tap larscom/tap
-
-# install binary
-brew install larscom/tap/rusty_relay_client
-```
-
-#### 📟 Shell
-```bash
-curl -fsSL https://github.com/larscom/rusty-relay/tree/main/scripts/install.sh | sh
-```
-
-##### 📦 Cargo
-```bash
-cargo install rusty-relay-client
-```
-
-Or simply download the client binary for your platform: https://github.com/larscom/rusty-relay/releases
-
-### Running the Client
-
-```bash
-Usage: rusty-relay-client [OPTIONS] --server <SERVER> --token <TOKEN> --target <TARGET>
-
-Options:
-  -s, --server <SERVER>    The rusty-relay-server hostname e.g: localhost:8080 or my.server.com [env: RUSTY_RELAY_SERVER=]
-      --token <TOKEN>      The connection token generated on rusty-relay-server [env: RUSTY_RELAY_TOKEN=]
-      --target <TARGET>    Target URL to local webserver e.g: http://localhost:3000/api/webhook [env: RUSTY_RELAY_TARGET=]
-  -i, --insecure           Connect to rusty-relay-server without TLS
-  -c, --ca-cert <CA_CERT>  Path to CA certificate (PEM encoded) [env: RUSTY_RELAY_CA_CERT=]
-  -v, --version            Show version info
-  -h, --help               Print help
-```
-
-### Running the Client against the test server
-You can connect to the test server to see how it works, feel free to use it.
-
-```bash
-rusty-relay-client \
-  --server rusty-relay.larscom.nl \
-  --target http://localhost:8080 \
-  --token pSyyI54kOhq8yZcV7YOEMKFw
-```
 
 ## ⚛️ Serve React app locally
 If you want to serve your `react` application locally, you first have to build it with `vite` e.g. `npm run build` and then use a simple webserver like `http-server` to serve it.
