@@ -94,13 +94,20 @@ async fn handle_ws(mut socket: WebSocket, client_id: String, state: State<Arc<Ap
                         break;
                     }
                     Ok(Message::Text(message)) => {
-                       tracing::debug!("received message from client: {}", message);
-                       if let Ok(RelayMessage::ProxyResponse { request_id, body, headers, status }) = serde_json::from_slice::<RelayMessage>(message.as_bytes()) {
-                        if let Some(tx) = state.remove_proxy_request(&request_id).await {
-                            let _ = tx.send(RelayMessage::ProxyResponse { request_id, body, headers, status });
-                        }
+                        if let Ok(RelayMessage::ProxyResponse { request_id, body, headers, status }) = serde_json::from_slice::<RelayMessage>(message.as_bytes()) {
+                            let body_str = std::str::from_utf8(&body).unwrap_or("<binary>");
+                            tracing::debug!(
+                                "received proxy response from client\nrequest_id: {}\nstatus: {}\nheaders: {:?}\nbody: {}",
+                                 request_id,
+                                 status,
+                                 headers,
+                                 body_str
+                                );
+                            if let Some(tx) = state.remove_proxy_request(&request_id).await {
+                                let _ = tx.send(RelayMessage::ProxyResponse { request_id, body, headers, status });
+                            }
                        } else {
-                            tracing::error!("failed to deserialize from bytes");
+                            tracing::error!("failed to deserialize from bytes: {}", message);
                        }
                     }
                     Ok(_) => {},
