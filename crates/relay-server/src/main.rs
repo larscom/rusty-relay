@@ -3,8 +3,10 @@
 use crate::{state::AppState, util::from_env_or_else};
 use axum::{Router, routing};
 use std::{net::SocketAddr, sync::Arc};
+use tracing::info;
 
 mod catch_all;
+mod error;
 mod health;
 mod proxy;
 mod state;
@@ -18,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
     tls::init();
 
-    tracing::info!(
+    info!(
         "🦀 Rusty Relay Server :: {} ::",
         from_env_or_else("VERSION", || "0.0.0".to_string())
     );
@@ -53,8 +55,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             [0, 0, 0, 0],
             from_env_or_else("RUSTY_RELAY_HTTPS_PORT", || 8443),
         ));
-        tracing::info!("🚀 server running (https) on https://{addr}/health");
-        tracing::info!("🔑 connect token: {}", state.connect_token());
+        info!("🚀 server running (https) on https://{addr}/health");
+        info!("🔑 connect token: {}", state.connect_token());
 
         axum_server::bind_rustls(addr, tls_config)
             .serve(router.into_make_service())
@@ -64,8 +66,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             [0, 0, 0, 0],
             from_env_or_else("RUSTY_RELAY_HTTP_PORT", || 8080),
         ));
-        tracing::info!("🚀 server running (http) on http://{addr}/health");
-        tracing::info!("🔑 connect token: {}", state.connect_token());
+        info!("🚀 server running (http) on http://{addr}/health");
+        info!("🔑 connect token: {}", state.connect_token());
 
         axum::serve(tokio::net::TcpListener::bind(addr).await?, router).await?
     }

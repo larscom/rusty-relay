@@ -90,6 +90,6 @@ impl<'a> ProxyHandler<'a> {
 
     pub fn print_url(&self, client_id: &str, protocol: &str, server: &str) {
         let proxy_url = format!("{}{}/proxy/{}", protocol, server, client_id);
-        println!("✅ You can open local website at: {proxy_url}")
+        println!("✅ You can serve api or website at: {proxy_url}")
     }
 }

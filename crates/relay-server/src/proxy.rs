@@ -1,11 +1,12 @@
 use crate::{
+    error::HttpError,
     state::AppState,
     util::{self, generate_id},
 };
 use axum::{
     body::Body,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::HeaderMap,
     response::{IntoResponse, Response},
 };
 use axum_extra::extract::{
@@ -15,6 +16,7 @@ use axum_extra::extract::{
 use rusty_relay_messages::RelayMessage;
 use std::sync::Arc;
 use tokio::sync::oneshot;
+use tracing::info;
 
 pub async fn proxy_handler_with_path(
     state: State<Arc<AppState>>,
@@ -36,6 +38,7 @@ pub async fn proxy_handler_without_path(
     proxy_handler(state, client_id, None, headers, method, body).await
 }
 
+#[tracing::instrument(skip(state))]
 pub async fn proxy_handler(
     state: State<Arc<AppState>>,
     client_id: String,
@@ -43,9 +46,9 @@ pub async fn proxy_handler(
     headers: HeaderMap,
     method: axum::http::Method,
     body: axum::body::Bytes,
-) -> (CookieJar, Response) {
+) -> impl IntoResponse {
     let request_id = generate_id(20);
-    tracing::info!("🖥 proxy request ({request_id}) received for client id: {client_id}");
+    info!(request_id, "🖥 proxy request received");
 
     if let Some(sender) = state.get_client(&client_id).await {
         let _ = sender.send(RelayMessage::ProxyRequest {
@@ -56,13 +59,9 @@ pub async fn proxy_handler(
             body: body.to_vec(),
         });
     } else {
-        return (
+        return ProxyResponse::new(
             CookieJar::default(),
-            (
-                StatusCode::BAD_REQUEST,
-                format!("Client id is unknown: {}", client_id),
-            )
-                .into_response(),
+            HttpError::BadRequest(format!("Client id is unknown: {}", client_id)),
         );
     }
 
@@ -78,7 +77,7 @@ pub async fn proxy_handler(
 
     let cookie_jar = CookieJar::new().add(client_id_cookie);
 
-    match tokio::time::timeout(std::time::Duration::from_secs(5), resp_rx).await {
+    match tokio::time::timeout(state.proxy_timeout(), resp_rx).await {
         Ok(Ok(RelayMessage::ProxyResponse {
             body,
             headers,
@@ -89,17 +88,33 @@ pub async fn proxy_handler(
             for (k, v) in headers.iter().filter(|(k, _)| *k != "content-length") {
                 response = response.header(k, v);
             }
-            (
+            ProxyResponse::new(
                 cookie_jar,
                 response
                     .body(Body::from(body))
-                    .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))
-                    .into_response(),
+                    .map_err(|e| HttpError::BadRequest(e.to_string())),
             )
         }
-        _ => (
+        _ => ProxyResponse::new(cookie_jar, HttpError::GatewayTimeout("Timeout".to_string())),
+    }
+}
+
+pub struct ProxyResponse {
+    cookie_jar: CookieJar,
+    response: Response,
+}
+
+impl ProxyResponse {
+    pub fn new(cookie_jar: CookieJar, response: impl IntoResponse) -> Self {
+        Self {
             cookie_jar,
-            (StatusCode::GATEWAY_TIMEOUT, "Timeout").into_response(),
-        ),
+            response: response.into_response(),
+        }
+    }
+}
+
+impl IntoResponse for ProxyResponse {
+    fn into_response(self) -> Response {
+        (self.cookie_jar, self.response).into_response()
     }
 }

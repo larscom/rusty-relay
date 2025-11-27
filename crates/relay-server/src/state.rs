@@ -1,12 +1,14 @@
 use crate::util::{from_env_or_else, generate_id};
 use rusty_relay_messages::RelayMessage;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 use tokio::sync::{Mutex, broadcast, oneshot};
 
 pub struct AppState {
     clients: Mutex<HashMap<String, broadcast::Sender<RelayMessage>>>,
     proxy_requests: Mutex<HashMap<String, oneshot::Sender<RelayMessage>>>,
     connect_token: String,
+    proxy_timeout: Duration,
+    ping_interval: Duration,
 }
 
 impl Default for AppState {
@@ -21,6 +23,11 @@ impl AppState {
             clients: Mutex::new(HashMap::new()),
             proxy_requests: Mutex::new(HashMap::new()),
             connect_token: from_env_or_else("RUSTY_RELAY_CONNECT_TOKEN", || generate_id(24)),
+            proxy_timeout: Duration::from_secs(from_env_or_else("RUSTY_RELAY_PROXY_TIMEOUT", || 5)),
+            ping_interval: Duration::from_secs(from_env_or_else(
+                "RUSTY_RELAY_PING_INTERVAL",
+                || 25,
+            )),
         }
     }
 
@@ -40,6 +47,14 @@ impl AppState {
 
     pub fn connect_token(&self) -> &str {
         self.connect_token.as_str()
+    }
+
+    pub fn proxy_timeout(&self) -> Duration {
+        self.proxy_timeout
+    }
+
+    pub fn ping_interval(&self) -> Duration {
+        self.ping_interval
     }
 
     pub async fn remove_client(&self, id: &str) {
