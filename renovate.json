@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "dependencyDashboardApproval": false,
   "packageRules": [
     {
       "description": "Automerge non-major updates",
