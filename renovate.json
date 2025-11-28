@@ -1,9 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    ":disableDependencyDashboard"
   ],
-  "dependencyDashboardApproval": false,
   "packageRules": [
     {
       "description": "Automerge non-major updates",
