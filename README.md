@@ -137,30 +137,28 @@ Or change the environment variables where the server should look for those files
 Lets say you have a REST API running locally with this endpoint: `http://localhost:3000/api/webhook` ready to receive webhooks.
 
 You run the client
-
 ```bash
 rusty-relay-client \
-  --server my.server.com \
+  --server rusty-relay.larscom.nl \
   --target http://localhost:3000/api/webhook \
-  --token my_token
+  --token pSyyI54kOhq8yZcV7YOEMKFw
 ```
 
-You should then be able to publically send webhooks to: `https://my.server.com/webhook/{id}`
+You should then be able to publically send webhooks to: `https://rusty-relay.larscom.nl/webhook/{id}`
 
 ### 🌐 Serve locally built REST API
 
 Lets say you have a REST API running locally with this endpoint: `http://localhost:3000/api/users`
 
 You run the client
-
 ```bash
 rusty-relay-client \
-  --server my.server.com \
+  --server rusty-relay.larscom.nl \
   --target http://localhost:3000 \
-  --token my_token
+  --token pSyyI54kOhq8yZcV7YOEMKFw
 ```
 
-You should then be able to access it publically via: `https://my.server.com/proxy/{id}/api/users`
+You should then be able to access it publically via: `https://rusty-relay.larscom.nl/proxy/{id}/api/users`
 
 ### ⚛️ Serve locally built React application
 
@@ -180,12 +178,12 @@ Then run the client
 
 ```bash
 rusty-relay-client \
-  --server my.server.com \
+  --server rusty-relay.larscom.nl \
   --target http://localhost:3000 \
-  --token my_token
+  --token pSyyI54kOhq8yZcV7YOEMKFw
 ```
 
-You should then be able to access it publically via: `https://my.server.com/proxy/{id}`
+You should then be able to access it publically via: `https://rusty-relay.larscom.nl/proxy/{id}`
 
 ## ⚖️ Webhook vs Proxy endpoint
 
