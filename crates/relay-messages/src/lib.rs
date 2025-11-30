@@ -16,6 +16,7 @@ pub enum RelayMessage {
         headers: HashMap<String, String>,
         body: Vec<u8>,
         path: Option<String>,
+        query: Option<String>,
     },
     ProxyResponse {
         request_id: String,

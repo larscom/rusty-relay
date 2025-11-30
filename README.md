@@ -160,18 +160,15 @@ rusty-relay-client \
 
 You should then be able to access it publically via: `https://rusty-relay.larscom.nl/proxy/{id}/api/users`
 
-### ⚛️ Serve locally built React application
-
-If you want to serve your `react` application locally, you first have to build it with `vite` e.g. `npm run build` and then use a simple webserver like `http-server` to serve it.
-
-For example:
+### ⚛️ Serve local React application
+Just run your react application e.g: `npm run dev`
 
 ```bash
-# install http-server globally via npm
-npm install -g http-server
+VITE v7.2.4  ready in 89 ms
 
-# serve your freshly build react app on port 3000
-http-server ./dist --port 3000
+➜  Local:   http://localhost:5173/
+➜  Network: use --host to expose
+➜  press h + enter to show help
 ```
 
 Then run the client
@@ -179,7 +176,7 @@ Then run the client
 ```bash
 rusty-relay-client \
   --server rusty-relay.larscom.nl \
-  --target http://localhost:3000 \
+  --target http://localhost:5173 \
   --token pSyyI54kOhq8yZcV7YOEMKFw
 ```
 

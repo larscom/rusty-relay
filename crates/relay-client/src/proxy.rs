@@ -24,6 +24,7 @@ impl<'a> ProxyHandler<'a> {
         &self,
         request_id: String,
         path: Option<String>,
+        query: Option<String>,
         method: String,
         headers: HashMap<String, String>,
         body: Vec<u8>,
@@ -32,6 +33,11 @@ impl<'a> ProxyHandler<'a> {
             &format!("{}/{}", self.target, p)
         } else {
             self.target
+        };
+        let url = if let Some(q) = query.as_ref() {
+            &format!("{url}{q}")
+        } else {
+            url
         };
 
         let mut request_headers = HeaderMap::with_capacity(headers.len());

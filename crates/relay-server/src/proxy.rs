@@ -5,7 +5,7 @@ use crate::{
 };
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
     response::{IntoResponse, Response},
 };
@@ -14,28 +14,30 @@ use axum_extra::extract::{
     cookie::{Cookie, Expiration},
 };
 use rusty_relay_messages::RelayMessage;
-use std::sync::Arc;
+use std::{ops::Not, sync::Arc};
 use tokio::sync::oneshot;
 use tracing::info;
 
 pub async fn proxy_handler_with_path(
     state: State<Arc<AppState>>,
     Path((client_id, path)): Path<(String, String)>,
+    Query(params): Query<Vec<(String, String)>>,
     headers: HeaderMap,
     method: axum::http::Method,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
-    proxy_handler(state, client_id, Some(path), headers, method, body).await
+    proxy_handler(state, client_id, Some(path), headers, method, body, params).await
 }
 
 pub async fn proxy_handler_without_path(
     state: State<Arc<AppState>>,
     Path(client_id): Path<String>,
+    Query(params): Query<Vec<(String, String)>>,
     headers: HeaderMap,
     method: axum::http::Method,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
-    proxy_handler(state, client_id, None, headers, method, body).await
+    proxy_handler(state, client_id, None, headers, method, body, params).await
 }
 
 #[tracing::instrument(skip(state))]
@@ -46,14 +48,17 @@ pub async fn proxy_handler(
     headers: HeaderMap,
     method: axum::http::Method,
     body: axum::body::Bytes,
+    params: Vec<(String, String)>,
 ) -> impl IntoResponse {
     let request_id = generate_id(20);
     info!(request_id, "🖥 proxy request received");
 
     if let Some(sender) = state.get_client(&client_id).await {
+        let query = params.is_empty().not().then(|| util::get_query(params));
         let _ = sender.send(RelayMessage::ProxyRequest {
             request_id: request_id.clone(),
             path,
+            query,
             method: method.to_string(),
             headers: util::into_hashmap(headers),
             body: body.to_vec(),

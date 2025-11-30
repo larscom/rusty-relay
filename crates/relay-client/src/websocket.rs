@@ -98,13 +98,14 @@ impl<'a> Client<'a> {
             RelayMessage::ProxyRequest {
                 request_id,
                 path,
+                query,
                 method,
                 headers,
                 body,
             } => {
                 let proxy_response = self
                     .proxy_handler
-                    .handle(request_id, path, method, headers, body)
+                    .handle(request_id, path, query, method, headers, body)
                     .await?;
 
                 return Ok(proxy_response);
