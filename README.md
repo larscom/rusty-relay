@@ -89,7 +89,7 @@ The preferred way of running the server is via docker and behind a reverse proxy
 ```bash
 # a connection token is generated on startup which the client needs to connect (see logs)
 
-docker run ghcr.io/larscom/rusty-relay:latest
+docker run -p 8080:8080 ghcr.io/larscom/rusty-relay:latest
 ```
 
 ### Installing the Server (alternative method)
