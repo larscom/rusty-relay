@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "development-tools"]
 tokio-tungstenite = { version = "0.28.0", features = [
     "rustls-tls-webpki-roots",
 ] }
-reqwest = { version = "0.12.25", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12.26", features = ["json", "rustls-tls"] }
 clap = { version = "4.5.53", features = ["derive", "env"] }
 futures-util = "0.3.31"
 anyhow = "1.0.100"
