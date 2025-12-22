@@ -4,9 +4,9 @@ use crate::{
     util::{self, generate_id},
 };
 use axum::{
-    body::Body,
+    body::{Body, Bytes},
     extract::{Path, Query, State},
-    http::HeaderMap,
+    http::{HeaderMap, Method},
     response::{IntoResponse, Response},
 };
 use axum_extra::extract::{
@@ -23,8 +23,8 @@ pub async fn proxy_handler_with_path(
     Path((client_id, path)): Path<(String, String)>,
     Query(params): Query<Vec<(String, String)>>,
     headers: HeaderMap,
-    method: axum::http::Method,
-    body: axum::body::Bytes,
+    method: Method,
+    body: Bytes,
 ) -> impl IntoResponse {
     proxy_handler(state, client_id, Some(path), headers, method, body, params).await
 }
@@ -34,8 +34,8 @@ pub async fn proxy_handler_without_path(
     Path(client_id): Path<String>,
     Query(params): Query<Vec<(String, String)>>,
     headers: HeaderMap,
-    method: axum::http::Method,
-    body: axum::body::Bytes,
+    method: Method,
+    body: Bytes,
 ) -> impl IntoResponse {
     proxy_handler(state, client_id, None, headers, method, body, params).await
 }
@@ -46,8 +46,8 @@ pub async fn proxy_handler(
     client_id: String,
     path: Option<String>,
     headers: HeaderMap,
-    method: axum::http::Method,
-    body: axum::body::Bytes,
+    method: Method,
+    body: Bytes,
     params: Vec<(String, String)>,
 ) -> impl IntoResponse {
     let request_id = generate_id(20);
@@ -93,6 +93,7 @@ pub async fn proxy_handler(
             for (k, v) in headers.iter().filter(|(k, _)| *k != "content-length") {
                 response = response.header(k, v);
             }
+
             ProxyResponse::new(
                 cookie_jar,
                 response
@@ -103,8 +104,7 @@ pub async fn proxy_handler(
         _ => ProxyResponse::new(cookie_jar, HttpError::GatewayTimeout("Timeout".to_string())),
     }
 }
-
-pub struct ProxyResponse {
+struct ProxyResponse {
     cookie_jar: CookieJar,
     response: Response,
 }
