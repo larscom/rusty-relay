@@ -15,6 +15,7 @@ use std::{ops::Not, sync::Arc};
 use tokio::sync::oneshot;
 use tracing::{debug, info};
 
+#[tracing::instrument(skip(state, jar, body))]
 pub async fn catch_all_handler(
     state: State<Arc<AppState>>,
     headers: HeaderMap,
@@ -69,6 +70,7 @@ pub async fn catch_all_handler(
     }
 }
 
+#[tracing::instrument(skip(jar))]
 pub async fn root_handler(
     Query(params): Query<Vec<(String, String)>>,
     jar: CookieJar,
