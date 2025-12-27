@@ -15,7 +15,7 @@ axum = { version = "0.8.8", features = ["ws"] }
 axum-server = { version = "0.8.0", default-features = false, features = [
     "tls-rustls-no-provider",
 ] }
-axum-extra = { version = "0.12.4", features = ["cookie"] }
+axum-extra = { version = "0.12.5", features = ["cookie"] }
 tokio-stream = "0.1.17"
 nanoid = "0.4.0"
 tracing = "0.1.44"
