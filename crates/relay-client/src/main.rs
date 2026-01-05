@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
     let args = cli::args();
 
     let http_client = reqwest::Client::builder()
-        .use_rustls_tls()
+        .tls_backend_rustls()
         .build()
         .context("failed to build reqwest http client")?;
     let webhook_handler = WebhookHandler::new(&args.target, http_client.clone());
