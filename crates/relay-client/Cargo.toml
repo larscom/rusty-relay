@@ -15,7 +15,7 @@ tokio-tungstenite = { version = "0.28.0", features = [
     "rustls-tls-webpki-roots",
 ] }
 reqwest = { version = "0.13.1", features = ["json"] }
-clap = { version = "4.5.54", features = ["derive", "env"] }
+clap = { version = "4.5.55", features = ["derive", "env"] }
 futures-util = "0.3.31"
 anyhow = "1.0.100"
 rusty-relay-messages = { path = "../relay-messages" }
