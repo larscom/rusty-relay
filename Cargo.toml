@@ -5,5 +5,5 @@ members = ["crates/*"]
 [workspace.dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-tokio = { version = "1.52.0", features = ["full"] }
+tokio = { version = "1.52.1", features = ["full"] }
 rustls = { version = "0.23.38", default-features = false, features = ["aws-lc-rs"] }
